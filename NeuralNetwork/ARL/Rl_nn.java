@@ -1,4 +1,4 @@
-package currentrl; //change the package name as required
+package ARL; //change the package name as required
 
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 
@@ -11,8 +11,6 @@ import java.io.FileReader;
 import java.io.IOException;
 
 import java.io.PrintStream;
-
-import com.sun.javafx.geom.Point2D;
 
 import robocode.AdvancedRobot;
 import robocode.BattleEndedEvent;
@@ -120,7 +118,7 @@ public class Rl_nn extends AdvancedRobot {
 	
 	//methods
 	NN NN_obj=new NN(); //Neural Network Function
-	Weights weights_obj=new Weights();
+
 	//
 public void run(){
 	setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
@@ -151,7 +149,7 @@ public void run(){
     		}
     	}
     	for(int i=0;i<1;i++){
-    		for(int j=0;j<20;j++){		
+    		for(int j=0;j<19;j++){
     	w_yh[i][j]= Double.valueOf(w_yhs[i][j]).doubleValue();
     		}
     	}
@@ -256,10 +254,14 @@ public void run(){
 		Xtrain[0][4]=j;
 		Xtrain[0][5]=1;
 		q_possible[j-1]=NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh, false);
+		//System.out.println(Xtrain[0][0]);
+		//System.out.println(Xtrain[0][1]);
+		//System.out.println(Xtrain[0][2]);
+		//System.out.println(Xtrain[0][3]);
 	}
 	//converting table to double
 	for(int i=0;i<4;i++){
-		System.out.println(q_possible[i]);
+		System.out.println(q_possible[i]+ "hi");
 	}
 	
 	Qmax_action=getMax(q_possible)+1;
@@ -312,6 +314,7 @@ public void run(){
 public void onScannedRobot(ScannedRobotEvent e)
 	{
 	double absBearing=e.getBearingRadians()+getHeadingRadians();
+
 	this.absBearing=absBearing;
 	double getVelocity=e.getVelocity();
 	double getHeadingRadians=e.getHeadingRadians();
@@ -357,6 +360,7 @@ public void onScannedRobot(ScannedRobotEvent e)
 	//absolute angle to enemy
 	absbearing=absoluteBearing((float) getX(),(float) getY(),(float) enemyX,(float) enemyY);
 	q_absbearing=quantize_angle(absbearing); //state number 4
+
 	
 	}
 
@@ -417,7 +421,7 @@ private double quantize_distance(double distance2) {
 double absoluteBearing(float x1, float y1, float x2, float y2) {
 	double xo = x2-x1;
 	double yo = y2-y1;
-	double hyp = Point2D.distance(x1, y1, x2, y2);
+	double hyp = Math.sqrt(Math.pow(xo,2) + Math.pow(yo,2));
 	double arcSin = Math.toDegrees(Math.asin(xo / hyp));
 	double bearing = 0;
 

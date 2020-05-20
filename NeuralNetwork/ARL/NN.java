@@ -1,4 +1,4 @@
-package currentrl; //change the package name as required
+package ARL; //change the package name as required
 import java.io.File;
 
 import java.io.FileNotFoundException;
@@ -85,7 +85,7 @@ public class NN {
 		    			  for(int j=0;j<d_x;j++){
 		    				  s=s+w_hx[i][j]*Xtrain[0][j];
 		    			  }
-		    			  h[i]=matrix.sig(s);
+		    			  h[i]=matrix.sigmoid(s);
 		    		  }
 		    		  
 		    		  for(int i=0;i<d_y;i++)
@@ -154,7 +154,7 @@ public class NN {
 		    		  
 		    		  for (int i=0;i<r_b;i++){
 		    			  for (int j=0;j<c_b;j++){
-		    				  delw_h[i][j]=beta_2*matrix.sigbi(tj[i])*(1-matrix.sigbi(tj[i]))*Xtrain[0][j];
+		    				  delw_h[i][j]=beta_2*matrix.sigmoid(tj[i])*(1-matrix.sigmoid(tj[i]))*Xtrain[0][j];
 		    				  w_hx[i][j]=w_hx[i][j]+rho*delw_h[i][j]+alpha*prev_delw_h[i][j];
 		    				  prev_delw_h[i][j]=rho*delw_h[i][j]+alpha*prev_delw_h[i][j];
 		    			  }

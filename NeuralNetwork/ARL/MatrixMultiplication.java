@@ -1,4 +1,4 @@
-package currentrl;
+package ARL;
 
 public class MatrixMultiplication {
 
@@ -29,7 +29,7 @@ public class MatrixMultiplication {
 		  
 	  }
 	  
-	  public double sigbi(double x1){
+	  public double sigmoid(double x1){
 			double ysigbi;
 			
 			  ysigbi=1/(1+Math.exp(-x1));
