@@ -35,10 +35,10 @@ public class Rl_nn extends AdvancedRobot {
     String state_action_combi_greedy=null;
     double robot_energy=0;
 
-    double q_present_double=0;
+    double[] q_present_double;
     int random_action=0;
 
-	double q_next_double=0;
+	double[] q_next_double;
 	int Qmax_action=0;
 	double[] q_possible=new double[total_actions.length];
 	double enemy_energy=0;
@@ -73,9 +73,6 @@ public class Rl_nn extends AdvancedRobot {
 	String[][] w_yhs = new String[outputNeurons][hiddenLayerNeurons + 1];
 
 
-	//methods
-	NN NN_obj=new NN(); //Neural Network Function
-
 	//
 	public void run(){
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
@@ -105,8 +102,11 @@ public class Rl_nn extends AdvancedRobot {
 					}
 
 					iter=iter+1;
-
 				}
+
+				NN NN_obj=new NN(5, 19, 1, w_hx, w_yh); //Neural Network Function
+				q_present_double = new double[1];
+				q_next_double = new double[1];
 				turnGunRight(360);
 				random_action=randInt(1,total_actions.length);
 				state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
@@ -117,7 +117,7 @@ public class Rl_nn extends AdvancedRobot {
 				inputValues[4]=random_action;
 				inputValues[5]=1;
 
-				q_present_double=NN.NNtrain(inputValues, targetValues, w_hx, w_yh, false);
+				q_present_double=NN_obj.NNfeedforward(inputValues);
 				//NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh,true);
 
 					System.out.println(w_hx[0][0]);
@@ -135,13 +135,14 @@ public class Rl_nn extends AdvancedRobot {
 				inputValues_next[2]=qdistancetoenemy;
 				inputValues_next[3]=q_absbearing;
 				inputValues_next[4]=random_action;
-				inputValues_next[5]=q_next_double=NN.NNtrain(inputValues_next, targetValues, w_hx, w_yh, false);
+				inputValues_next[5]=q_next_double[0];
+				q_next_double= NN_obj.NNfeedforward(inputValues_next);
 
 
 				//performing update
-				q_present_double=q_present_double+alpha*(reward+gamma*q_next_double-q_present_double);
-				targetValues[0]=q_present_double;
-				dummy = NN.NNtrain(inputValues, targetValues, w_hx, w_yh,true);
+				q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
+				targetValues[0]=q_present_double[0];
+				NN_obj.NNtrain(inputValues, targetValues);
 				saveHiddenWeights();
 				saveOutputWeights();
 
@@ -185,6 +186,9 @@ public class Rl_nn extends AdvancedRobot {
 
 				}
 
+				NN NN_obj=new NN(5, 19, 1, w_hx, w_yh); //Neural Network Function
+
+
 				//predict current state:
 				turnGunRight(360);
 
@@ -199,7 +203,7 @@ public class Rl_nn extends AdvancedRobot {
 					inputValues[3]=q_absbearing;
 					inputValues[4]=j;
 					inputValues[5]=1;
-					q_possible[j-1]=NN.NNtrain(inputValues, targetValues, w_hx, w_yh, false);
+					q_possible[j-1]=NN_obj.NNfeedforward(inputValues)[0];
 					//System.out.println(Xtrain[0][0]);
 					//System.out.println(Xtrain[0][1]);
 					//System.out.println(Xtrain[0][2]);
@@ -222,7 +226,7 @@ public class Rl_nn extends AdvancedRobot {
 				inputValues[4]=Qmax_action;
 				inputValues[5]=1;
 
-				q_present_double=NN.NNtrain(inputValues, targetValues, w_hx, w_yh, false);
+				q_present_double=NN_obj.NNfeedforward(inputValues);
 				reward=0;
 				//performing next state and scanning
 
@@ -237,13 +241,13 @@ public class Rl_nn extends AdvancedRobot {
 				inputValues_next[3]=q_absbearing;
 				inputValues_next[4]=random_action;
 				inputValues_next[5]=Qmax_action;;
-				q_next_double=NN.NNtrain(inputValues_next, targetValues, w_hx, w_yh, false);
+				q_next_double=NN_obj.NNfeedforward(inputValues);
 
 
 				//performing update
-				q_present_double=q_present_double+alpha*(reward+gamma*q_next_double-q_present_double);
-				targetValues[0]=q_present_double;
-				dummy=NN.NNtrain(inputValues, targetValues, w_hx, w_yh,true);
+				q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
+				targetValues=q_present_double;
+				NN_obj.NNtrain(inputValues, targetValues);
 			}//greedy loop ends
 		}//while loop ends
 	}//run function ends
