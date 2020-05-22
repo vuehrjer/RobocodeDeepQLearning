@@ -13,7 +13,6 @@ public class NN {
 	double[][] w_hx;
 	double[][] w_yh;
 	double[] h;
-	double[] Output;
 	int inputSize_;
 	int hiddenLayerSize_;
 	int outputSize_;
@@ -31,11 +30,12 @@ public class NN {
 		this.inputSize_ = inputSize_;
 		this.hiddenLayerSize_ = hiddenLayerSize_;
 		this.outputSize_ = outputSize_;
-
-		double[][] prev_delw_y=new double[outputSize_][hiddenLayerSize_+1];
-		double[][] prev_delw_h=new double[hiddenLayerSize_][inputSize_];
+		this.w_hx = w_hx;
+		this.w_yh = w_yh;
+		prev_delw_y=new double[outputSize_][hiddenLayerSize_+1];
+		prev_delw_h=new double[hiddenLayerSize_][inputSize_ + 1];
 		double beta_2=0;
-		double curr_delw_y=0;
+		curr_delw_y=0;
 		double[] tj=new double[hiddenLayerSize_+1];
 		ArrayList<Double> error = new ArrayList<Double>();
 
@@ -53,7 +53,7 @@ public class NN {
 		}
 
 		//forward propogation:
-		double[] h=new double[hiddenLayerSize_+1];
+		h=new double[hiddenLayerSize_+1];
 		for (int i=0;i < hiddenLayerSize_+1; i++){
 
 			h[i]=0;
@@ -70,8 +70,6 @@ public class NN {
 	public double[] NNfeedforward(double[] Input)
 	{
 
-		double nn_qvalue = 0;
-
 		for (int i=0;i<hiddenLayerSize_;i++)
 		{
 
@@ -82,6 +80,7 @@ public class NN {
 			h[i]=sigmoid(s);
 		}
 
+		double[] Output = new double[outputSize_];
 		for(int i=0;i<outputSize_;i++)
 		{
 			double s1=0;
@@ -137,6 +136,7 @@ public class NN {
 
 	public void NNtrain(double[] Input, double[] Target)
 	{
+		double[] Output;
 		Output = NNfeedforward(Input);
 		NNbackpropagate(Output, Input, Target);
 	}

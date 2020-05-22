@@ -24,8 +24,8 @@ public class Rl_nn extends AdvancedRobot {
     double qenemy_y=0;
     double qdistancetoenemy=0;
     //-------------Explore or greedy----------------------//
-    boolean explore=false; //set this true while training
-    boolean greedy=true;
+    boolean explore=true; //set this true while training
+    boolean greedy=false;
     //----------------------------------------------------//
     double absbearing=0;
     double q_absbearing=0;
@@ -83,6 +83,12 @@ public class Rl_nn extends AdvancedRobot {
 				if(iter==0){
 
 					//load command
+					try {
+						loadHiddenWeights();
+					}
+					catch (IOException e) {
+						e.printStackTrace();
+					}
 					try {
 						loadOutputWeights();
 					}
@@ -225,15 +231,32 @@ public class Rl_nn extends AdvancedRobot {
 				inputValues[3]=q_absbearing;
 				inputValues[4]=Qmax_action;
 				inputValues[5]=1;
-
+				System.out.println(qrl_x);
 				q_present_double=NN_obj.NNfeedforward(inputValues);
 				reward=0;
 				//performing next state and scanning
 
 				rl_action(Qmax_action);
 
+				qrl_x=quantize_position(getX());
+				qrl_y=quantize_position(getY());
 
 				turnGunRight(360);
+				System.out.println(qrl_x);
+				for(int j=1;j<=total_actions.length;j++)
+				{
+					inputValues_next[0]=qrl_x;
+					inputValues_next[1]=qrl_y;
+					inputValues_next[2]=qdistancetoenemy;
+					inputValues_next[3]=q_absbearing;
+					inputValues_next[4]=j;
+					inputValues_next[5]=1;
+					q_possible[j-1]=NN_obj.NNfeedforward(inputValues)[0];
+
+				}
+
+
+				Qmax_action=getMax(q_possible)+1;
 
 				inputValues_next[0]=qrl_x;
 				inputValues_next[1]=qrl_y;
@@ -241,9 +264,9 @@ public class Rl_nn extends AdvancedRobot {
 				inputValues_next[3]=q_absbearing;
 				inputValues_next[4]=random_action;
 				inputValues_next[5]=Qmax_action;;
-				q_next_double=NN_obj.NNfeedforward(inputValues);
+				q_next_double=NN_obj.NNfeedforward(inputValues_next);
 
-
+				System.out.println("h");
 				//performing update
 				q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
 				targetValues=q_present_double;
