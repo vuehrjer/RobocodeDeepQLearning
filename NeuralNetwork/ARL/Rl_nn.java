@@ -1,57 +1,27 @@
 package ARL; //change the package name as required
 
 import static robocode.util.Utils.normalRelativeAngleDegrees;
-
 import java.awt.Color;
-
 import java.io.BufferedReader;
-
 import java.io.FileReader;
-
 import java.io.IOException;
-
 import java.io.PrintStream;
-
-import robocode.AdvancedRobot;
-import robocode.BattleEndedEvent;
-import robocode.Bullet;
-import robocode.BulletHitEvent;
-import robocode.HitByBulletEvent;
-import robocode.HitRobotEvent;
-import robocode.HitWallEvent;
-
-import robocode.RobocodeFileOutputStream;
-import robocode.RobotStatus;
-import robocode.RoundEndedEvent;
-import robocode.ScannedRobotEvent;
+import robocode.*;
 import java.util.Random;
-import robocode.control.RobotSetup;
+
 public class Rl_nn extends AdvancedRobot {
 	final double alpha = 0.1;
     final double gamma = 0.9;
     double distance=0;
-    double rl_x=0;
-    double rl_y=0;
-    double rl_x_q=0;
-    //declaring states
-    int[] your_x=new int[8];
-    int[] your_y=new int[6];
-    int[] distance_to_enemy=new int[4];
-    int[] gear_angle=new int[4];
+
     //declaring actions
     int[] action=new int[4];
-    //LUT table initialization
-    int[] total_states_actions=new int[8*6*4*4*action.length];
     int[] total_actions=new int[4];
-    String[][] LUT=new String[total_states_actions.length][2];
-    String[][] CUM=new String[10][2];
-    double[][] LUT_double=new double[total_states_actions.length][2];
     //quantized parameters
     double qrl_x=0;
     double qrl_y=0;
     double qenemy_x=0;
     double qenemy_y=0;
-    private RobotStatus robotStatus;
     double qdistancetoenemy=0;
     //-------------Explore or greedy----------------------//
     boolean explore=false; //set this true while training
@@ -64,30 +34,18 @@ public class Rl_nn extends AdvancedRobot {
     String state_action_combi=null;
     String state_action_combi_greedy=null;
     double robot_energy=0;
-    int sa_combi_inLUT=0;
-    
-    String q_present=null;
+
     double q_present_double=0;
     int random_action=0;
-    String state_action_combi_next=null;
-	int sa_combi_inLUT_next=0;
-	String q_next=null;
+
 	double q_next_double=0;
-	int count=0;
 	int Qmax_action=0;
-	int[] actions_indices=new int[total_actions.length];
 	double[] q_possible=new double[total_actions.length];
-	int Qmax_actual_action=0;
 	double enemy_energy=0;
-	double reward1=0;
-	 double my_energy_pres=0;
-	 double enemy_energy_pres=0;
-	 double my_energy_next=0;
-	 double enemy_energy_next=0;
-	 double gunTurnAmt;
-	 double bearing;
-	 int rlaction;
-	 int store_action;
+	double gunTurnAmt;
+	double bearing;
+	int rlaction;
+	int store_action;
 	private double getHeadingRadians;
 	private double getVelocity;
 	private double absBearing;
@@ -95,27 +53,26 @@ public class Rl_nn extends AdvancedRobot {
 	private double getTime;
 	private double normalizeBearing;
 	
-	int count_battles;
-	double cum_reward;
-	double cum_reward_while=0;
-	static double[] cum_reward_array=new double[1000];
-	double cum_reward_hun=0; 
-	static int index1=0;
-	public int getRoundNum;
+
 	//nn
-	double[][] Xtrain=new double[1][6];
-	double[][] Xtrain_next=new double[1][6];
-	double[] Ytrain=new double[1];
 	static int iter=0;
 	double dummy=0;
-	
-	double ypredict = 0;
-	static double[][] w_hx=new double[19][6];
-	static double[][] w_yh=new double[1][19+1];	
-	String[][] w_hxs=new String[19][6];
-	String[][] w_yhs=new String[1][19+1];
-	
-	
+
+	static int inputNeurons = 6;
+	static int hiddenLayerNeurons = 19;
+	static int outputNeurons = 1;
+	double[] inputValues = new double[inputNeurons];
+	double[] inputValues_next = new double[inputNeurons];
+	double[] targetValues = new double[outputNeurons];
+
+	static double[][] w_hx = new double[hiddenLayerNeurons][inputNeurons];
+	String[][] w_hxs = new String[hiddenLayerNeurons][inputNeurons];
+
+	//hidden layer output: amount of neurons + 1 bias
+	static double[][] w_yh = new double[outputNeurons][hiddenLayerNeurons + 1];
+	String[][] w_yhs = new String[outputNeurons][hiddenLayerNeurons + 1];
+
+
 	//methods
 	NN NN_obj=new NN(); //Neural Network Function
 
@@ -125,84 +82,73 @@ public void run(){
     setBodyColor(Color.PINK);
     while(true){
     	if(explore){ //Explore event--------------------------------------------------//
-     		
-    if(iter==0){
+
+			if(iter==0){
+
+				//load command
+				try {
+					loadOutputWeights();
+				}
+				catch (IOException e) {
+					e.printStackTrace();
+				}
+				//the loaded variable is in string converting it into double
+				for(int i=0;i<hiddenLayerNeurons;i++){
+					for(int j=0;j<inputNeurons;j++){
+						w_hx[i][j]= Double.valueOf(w_hxs[i][j]).doubleValue();
+					}
+				}
+				for(int i=0;i<outputNeurons;i++){
+					for(int j=0;j<hiddenLayerNeurons;j++){
+						w_yh[i][j]= Double.valueOf(w_yhs[i][j]).doubleValue();
+					}
+				}
+
+				iter=iter+1;
+
+			}
+			turnGunRight(360);
+			random_action=randInt(1,total_actions.length);
+			state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
+			inputValues[0]=qrl_x;
+			inputValues[1]=qrl_y;
+			inputValues[2]=qdistancetoenemy;
+			inputValues[3]=q_absbearing;
+			inputValues[4]=random_action;
+			inputValues[5]=1;
+
+			q_present_double=NN.NNtrain(inputValues, targetValues, w_hx, w_yh, false);
+			//NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh,true);
+
+				System.out.println(w_hx[0][0]);
+
+
+			reward=0;
+			//performing next state and scanning
+
+			rl_action(random_action);
+
+			turnGunRight(360);
+
+			inputValues_next[0]=qrl_x;
+			inputValues_next[1]=qrl_y;
+			inputValues_next[2]=qdistancetoenemy;
+			inputValues_next[3]=q_absbearing;
+			inputValues_next[4]=random_action;
+			inputValues_next[5]=q_next_double=NN.NNtrain(inputValues_next, targetValues, w_hx, w_yh, false);
+
+
+			//performing update
+			q_present_double=q_present_double+alpha*(reward+gamma*q_next_double-q_present_double);
+			targetValues[0]=q_present_double;
+			dummy = NN.NNtrain(inputValues, targetValues, w_hx, w_yh,true);
+			saveHiddenWeights();
+			saveOutputWeights();
+
+
+		}//explore loop ends
     	
-    	
-    	try {
-			load2();
-		} 
-		catch (IOException e) {
-			e.printStackTrace();
-		}
-		//load command
-    	try {
-			load22();
-		} 
-		catch (IOException e) {
-			e.printStackTrace();
-		}
-    	//the loaded variable is in string converting it into double
-    	for(int i=0;i<19;i++){
-    		for(int j=0;j<6;j++){		
-    	w_hx[i][j]= Double.valueOf(w_hxs[i][j]).doubleValue();
-    		}
-    	}
-    	for(int i=0;i<1;i++){
-    		for(int j=0;j<19;j++){
-    	w_yh[i][j]= Double.valueOf(w_yhs[i][j]).doubleValue();
-    		}
-    	}
-    	
-    	iter=iter+1;
-    	
-    }		
-    turnGunRight(360);
-	random_action=randInt(1,total_actions.length);
-	state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
-	Xtrain[0][0]=qrl_x;
-	Xtrain[0][1]=qrl_y;
-	Xtrain[0][2]=qdistancetoenemy;
-	Xtrain[0][3]=q_absbearing;
-	Xtrain[0][4]=random_action;
-	Xtrain[0][5]=1;
-	
-	q_present_double=NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh, false);
-	//NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh,true);
-	
-		System.out.println(w_hx[0][0]);
-	
-	
-	 reward=0;
-	 //performing next state and scanning
-			 
-	 rl_action(random_action);
-	 
-	 turnGunRight(360);
-	 
-	 Xtrain_next[0][0]=qrl_x;
-		Xtrain_next[0][1]=qrl_y;
-		Xtrain_next[0][2]=qdistancetoenemy;
-		Xtrain_next[0][3]=q_absbearing;
-		Xtrain_next[0][4]=random_action;
-		Xtrain_next[0][5]=1;
-	
-	
-		 q_next_double=NN.NNtrain(Xtrain_next, Ytrain, w_hx, w_yh, false);
-	 
-		
-	 //performing update
-	 q_present_double=q_present_double+alpha*(reward+gamma*q_next_double-q_present_double);
-	 Ytrain[0]=q_present_double;
-	 dummy=NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh,true);
-	 cum_reward_while+=reward;
-	 save2();
-	 save22();
-	 
-	
-}//explore loop ends
-    	
-//Greedy Moves//    	
+		//Greedy Moves//
     	
     	if(greedy){
 
@@ -211,103 +157,96 @@ public void run(){
     	    	
     	    	
     	    	try {
-    				load2();
+    				loadHiddenWeights();
     			} 
     			catch (IOException e) {
     				e.printStackTrace();
     			}
     			//load command
     	    	try {
-    				load22();
+    				loadOutputWeights();
     			} 
     			catch (IOException e) {
     				e.printStackTrace();
     			}
     	    	//the loaded variable is in string converting it into double
-    	    	for(int i=0;i<19;i++){
-    	    		for(int j=0;j<6;j++){		
-    	    	w_hx[i][j]= Double.valueOf(w_hxs[i][j]).doubleValue();
+    	    	for(int i=0;i<hiddenLayerNeurons;i++){
+    	    		for(int j=0;j<inputNeurons;j++){
+    	    			w_hx[i][j]= Double.valueOf(w_hxs[i][j]).doubleValue();
     	    		}
     	    	}
-    	    	for(int i=0;i<1;i++){
-    	    		for(int j=0;j<20;j++){		
-    	    	w_yh[i][j]= Double.valueOf(w_yhs[i][j]).doubleValue();
+    	    	for(int i=0;i<outputNeurons;i++){
+    	    		for(int j=0;j<hiddenLayerNeurons+1;j++){
+    	    			w_yh[i][j]= Double.valueOf(w_yhs[i][j]).doubleValue();
     	    		}
     	    	}
     	    	
     	    	iter=iter+1;
     	    	
     	    }		
-     	
-    //predict current state:
-	turnGunRight(360);
-	
-	// finding action that produces maximum Q value
-	
-	
-	for(int j=1;j<=total_actions.length;j++)
-	{
-		Xtrain[0][0]=qrl_x;
-		Xtrain[0][1]=qrl_y;
-		Xtrain[0][2]=qdistancetoenemy;
-		Xtrain[0][3]=q_absbearing;
-		Xtrain[0][4]=j;
-		Xtrain[0][5]=1;
-		q_possible[j-1]=NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh, false);
-		//System.out.println(Xtrain[0][0]);
-		//System.out.println(Xtrain[0][1]);
-		//System.out.println(Xtrain[0][2]);
-		//System.out.println(Xtrain[0][3]);
-	}
-	//converting table to double
-	for(int i=0;i<4;i++){
-		System.out.println(q_possible[i]+ "hi");
-	}
-	
-	Qmax_action=getMax(q_possible)+1;
-	int jj=0;
-	
-	Xtrain[0][0]=qrl_x;
-	Xtrain[0][1]=qrl_y;
-	Xtrain[0][2]=qdistancetoenemy;
-	Xtrain[0][3]=q_absbearing;
-	Xtrain[0][4]=Qmax_action;
-	Xtrain[0][5]=1;
-	
-	 q_present_double=NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh, false);
-	 reward=0;
-	 //performing next state and scanning
-	
-	 
-	 rl_action(Qmax_action);
-	 
-	 
-	 turnGunRight(360);
-	 
-	 Xtrain_next[0][0]=qrl_x;
-		Xtrain_next[0][1]=qrl_y;
-		Xtrain_next[0][2]=qdistancetoenemy;
-		Xtrain_next[0][3]=q_absbearing;
-		Xtrain_next[0][4]=random_action;
-		Xtrain_next[0][5]=Qmax_action;;
-		
-		 q_next_double=NN.NNtrain(Xtrain_next, Ytrain, w_hx, w_yh, false);
-	 
-		
-	 //performing update
-	 q_present_double=q_present_double+alpha*(reward+gamma*q_next_double-q_present_double);
-	 Ytrain[0]=q_present_double;
-	 dummy=NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh,true);
-	 cum_reward_while+=reward;
-	 
-}//greedy loop ends
-    		
-          
-    }//while loop ends
-    
-    
-    
-    }//run function ends
+
+			//predict current state:
+			turnGunRight(360);
+
+			// finding action that produces maximum Q value
+
+
+			for(int j=1;j<=total_actions.length;j++)
+			{
+				inputValues[0]=qrl_x;
+				inputValues[1]=qrl_y;
+				inputValues[2]=qdistancetoenemy;
+				inputValues[3]=q_absbearing;
+				inputValues[4]=j;
+				inputValues[5]=1;
+				q_possible[j-1]=NN.NNtrain(inputValues, targetValues, w_hx, w_yh, false);
+				//System.out.println(Xtrain[0][0]);
+				//System.out.println(Xtrain[0][1]);
+				//System.out.println(Xtrain[0][2]);
+				//System.out.println(Xtrain[0][3]);
+			}
+
+			//converting table to double
+
+			for(int i=0;i<4;i++){
+				System.out.println(q_possible[i]+ "hi");
+			}
+
+			Qmax_action=getMax(q_possible)+1;
+			int jj=0;
+
+			inputValues[0]=qrl_x;
+			inputValues[1]=qrl_y;
+			inputValues[2]=qdistancetoenemy;
+			inputValues[3]=q_absbearing;
+			inputValues[4]=Qmax_action;
+			inputValues[5]=1;
+
+			q_present_double=NN.NNtrain(inputValues, targetValues, w_hx, w_yh, false);
+			reward=0;
+			//performing next state and scanning
+
+			rl_action(Qmax_action);
+
+
+			turnGunRight(360);
+
+			inputValues_next[0]=qrl_x;
+			inputValues_next[1]=qrl_y;
+			inputValues_next[2]=qdistancetoenemy;
+			inputValues_next[3]=q_absbearing;
+			inputValues_next[4]=random_action;
+			inputValues_next[5]=Qmax_action;;
+			q_next_double=NN.NNtrain(inputValues_next, targetValues, w_hx, w_yh, false);
+
+
+			//performing update
+			q_present_double=q_present_double+alpha*(reward+gamma*q_next_double-q_present_double);
+			targetValues[0]=q_present_double;
+			dummy=NN.NNtrain(inputValues, targetValues, w_hx, w_yh,true);
+		}//greedy loop ends
+	}//while loop ends
+}//run function ends
 
    
 //function definitions:
@@ -372,15 +311,9 @@ public double normalizeBearing(double angle) {
 }
 
 
-
-
-//reward functions:
-
-
 public void onHitRobot(HitRobotEvent event){reward-=2;} //our robot hit by enemy robot
 public void onBulletHit(BulletHitEvent event){reward+=3;} //one of our bullet hits enemy robot
 public void onHitByBullet(HitByBulletEvent event){reward-=3;} //when our robot is hit by a bullet
-//public void BulletMissedEvent(Bullet bullet){reward-=3;} 
 
 private double quantize_angle(double absbearing2) {
 	
@@ -438,9 +371,6 @@ double absoluteBearing(float x1, float y1, float x2, float y2) {
 	return bearing;
 }
 
-
-
-
 private double quantize_position(double rl_x2) {
 		// TODO Auto-generated method stub
 		
@@ -472,8 +402,7 @@ private double quantize_position(double rl_x2) {
 
 	}
 
-public void rl_action(int x)
-			{
+public void rl_action(int x){
 	switch(x){
 		case 1:
 			int moveDirection=+1;  //moves in anticlockwise direction
@@ -510,7 +439,7 @@ public void rl_action(int x)
 		
 	}
 			}//rl_action()
-//randomint
+
 public static int randInt(int min, int max) {
 
     // Usually this can be a field rather than a method variable
@@ -523,120 +452,64 @@ public static int randInt(int min, int max) {
     return randomNum;
 }
 
-//lut initialization
+public void saveHiddenWeights() {
 
-public void initialiseLUT() {
-    int[] total_states_actions=new int[8*6*4*4*action.length];
-    LUT=new String[total_states_actions.length][2];
-    int z=0;
-    for(int i=1;i<=8;i++){
-    	for(int j=1;j<=6;j++){
-    		for(int k=1;k<=4;k++){
-    			for(int l=1;l<=4;l++){
-    				for(int m=1;m<=action.length;m++){
-    					LUT[z][0]=i+""+j+""+k+""+l+""+m;
-    					LUT[z][1]="0";
-    					z=z+1;
-    				}
-    			}
-    		}
-    	}
-    }
-
-   } //Initialize LUT
-
-public void save() {
-
-	PrintStream w = null;
+	PrintStream hiddenWeightsStream = null;
 	try {
-		w = new PrintStream(new RobocodeFileOutputStream(getDataFile("LookUpTable.txt")));
-		for (int i=0;i<LUT.length;i++) {
-			w.println(LUT[i][0]+"    "+LUT[i][1]);
-		}
-	} catch (IOException e) {
-		e.printStackTrace();
-	}finally {
-		w.flush();
-		w.close();
-	}
-
-}//save
-public void save2() {
-
-	PrintStream w1 = null;
-	try {
-		w1 = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_hidden.txt")));
+		hiddenWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_hidden.txt")));
 		for (int i=0;i<w_hx.length;i++) {
-			w1.println(w_hx[i][0]+"    "+w_hx[i][1]+"    "+w_hx[i][2]+"    "+w_hx[i][3]+"    "+w_hx[i][4]+"    "+w_hx[i][5]);
+
+			String outputLine = String.valueOf(w_hx[i][0]);
+			for (int j = 1; j < w_hx[i].length; j++) {
+				outputLine += "    " + String.valueOf(w_hx[i][j]);
+			}
+			hiddenWeightsStream.println(outputLine);
+
 		}
 	} catch (IOException e) {
 		e.printStackTrace();
 	}finally {
-		w1.flush();
-		w1.close();
+		hiddenWeightsStream.flush();
+		hiddenWeightsStream.close();
 	}
 
-}//save
+}
 
-public void save22() {
+public void saveOutputWeights() {
 
-	PrintStream w2 = null;
+	PrintStream outputWeightsStream = null;
 	try {
-		w2 = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_output.txt")));
-		for (int i=0;i<1;i++) {
-			w2.println(w_yh[i][0]+"    "+w_yh[i][1]+"    "+w_yh[i][2]+"    "+w_yh[i][3]+"    "+w_yh[i][4]+"    "+w_yh[i][5]+"    "+
-					w_yh[i][6]+"    "+w_yh[i][7]+"    "+w_yh[i][8]+"    "+w_yh[i][9]+"    "+w_yh[i][10]+"    "+w_yh[i][11]+"    "+
-					w_yh[i][12]+"    "+w_yh[i][13]+"    "+w_yh[i][14]+"    "+w_yh[i][15]+"    "+w_yh[i][16]+"    "+w_yh[i][17]+"    "+
-					w_yh[i][18]+"    "+w_yh[i][19]
-					
-					
-					);
-					
+		outputWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_output.txt")));
+		for (int i=0;i<w_yh.length;i++) {
+
+			String outputLine = String.valueOf(w_yh[i][0]);
+			for (int j = 1; j < w_yh[i].length; j++) {
+				outputLine += "    " + String.valueOf(w_yh[i][j]);
+			}
+
+			outputWeightsStream.println(outputLine);
 		}
 	} catch (IOException e) {
 		e.printStackTrace();
 	}finally {
-		w2.flush();
-		w2.close();
+		outputWeightsStream.flush();
+		outputWeightsStream.close();
 	}
 
-}//save
+}
 
-public void load() throws IOException {
-	BufferedReader reader = new BufferedReader(new FileReader(getDataFile("LookUpTable.txt")));
-	String line = reader.readLine();
-	try {
-        int zz=0;
-        while (line != null) {
-        	String splitLine[] = line.split("    ");
-        	LUT[zz][0]=splitLine[0]; 
-        	LUT[zz][1]=splitLine[1];
-        	zz=zz+1;
-        	line= reader.readLine();
-        }
-	} catch (IOException e) {
-		e.printStackTrace();
-	}finally {
-		reader.close();
-	}
-}//load
-
-//load 2:
-public void load2() throws IOException {
+public void loadHiddenWeights() throws IOException {
 	BufferedReader reader = new BufferedReader(new FileReader(getDataFile("weights_hidden.txt")));
 	String line = reader.readLine();
 	try {
-        int zz=0;
+        int hidN_i=0;
         while (line != null) {
         	String splitLine[] = line.split("    ");
-        	w_hxs[zz][0]=splitLine[0]; 
-        	w_hxs[zz][1]=splitLine[1];
-        	w_hxs[zz][2]=splitLine[2];
-        	w_hxs[zz][3]=splitLine[3];
-        	w_hxs[zz][4]=splitLine[4];
-        	w_hxs[zz][5]=splitLine[5];
-        	
-        	zz=zz+1;
+			for (int inN_i = 0; inN_i < w_hxs[hidN_i].length; inN_i++) {
+				w_hxs[hidN_i][inN_i]=splitLine[inN_i];
+
+			}
+        	hidN_i++;
         	line= reader.readLine();
         }
 	} catch (IOException e) {
@@ -645,36 +518,18 @@ public void load2() throws IOException {
 		reader.close();
 	}
 }//load
-//load 2:
-public void load22() throws IOException {
+
+public void loadOutputWeights() throws IOException {
 	BufferedReader reader = new BufferedReader(new FileReader(getDataFile("weights_output.txt")));
 	String line = reader.readLine();
 	try {
-        int zz=0;
+        int outN_i=0;
         while (line != null) {
         	String splitLine[] = line.split("    ");
-        	w_yhs[zz][0]=splitLine[0]; 
-        	w_yhs[zz][1]=splitLine[1];
-        	w_yhs[zz][2]=splitLine[2];
-        	w_yhs[zz][3]=splitLine[3];
-        	w_yhs[zz][4]=splitLine[4];
-        	w_yhs[zz][5]=splitLine[5];
-        	w_yhs[zz][6]=splitLine[6]; 
-        	w_yhs[zz][7]=splitLine[7];
-        	w_yhs[zz][8]=splitLine[8];
-        	w_yhs[zz][9]=splitLine[9];
-        	w_yhs[zz][10]=splitLine[10];
-        	w_yhs[zz][11]=splitLine[11];
-        	w_yhs[zz][12]=splitLine[12]; 
-        	w_yhs[zz][13]=splitLine[13];
-        	w_yhs[zz][14]=splitLine[14];
-        	w_yhs[zz][15]=splitLine[15];
-        	w_yhs[zz][16]=splitLine[16];
-        	w_yhs[zz][17]=splitLine[17];
-        	w_yhs[zz][18]=splitLine[18]; 
-        	w_yhs[zz][19]=splitLine[19];
-        	
-        	zz=0;
+			for (int hidN_i = 0; hidN_i < w_yhs[outN_i].length; hidN_i++) {
+				w_yhs[outN_i][hidN_i]=splitLine[hidN_i];
+			}
+        	outN_i++;
         	line= reader.readLine();
         }
 	} catch (IOException e) {
@@ -684,10 +539,10 @@ public void load22() throws IOException {
 	}
 }//load
 
-//get max
-public static int getMax(double[] array){ 
+public static int getMax(double[] array){
 
-	double largest = array[0];int index = 0;
+	double largest = array[0];
+	int index = 0;
 	for (int i = 1; i < array.length; i++) {
 	  if ( array[i] >= largest ) {
 	      largest = array[i];
@@ -696,8 +551,6 @@ public static int getMax(double[] array){
 	}
 	return index;
   }//end of getMax
-
-
 
 //wall smoothing (To make sure RL robot does not get stuck in the wall)
 public void onHitWall(HitWallEvent e){
@@ -758,7 +611,5 @@ public void onHitWall(HitWallEvent e){
 	}
 	
 }
-
-//wall smoothing
 
 }//Rl_nn class
