@@ -6,8 +6,142 @@ import java.util.ArrayList;
 import java.util.Scanner;
 
 public class NN {
-	
-	public static double NNtrain(double[][] Xtrain, double[] Ytrain,double[][] w_hx,double[][] w_yh,boolean switch1) {
+
+
+	double rho=0.00001;
+	double alpha=0.9;
+	double[][] w_hx;
+	double[][] w_yh;
+	double[] h;
+	int inputSize_;
+	int hiddenLayerSize_;
+	int outputSize_;
+	double[][] prev_delw_y;
+	double[][] prev_delw_h;
+	double curr_delw_y;
+
+
+	public NN()
+	{ }
+
+	public NN(int inputSize_, int hiddenLayerSize_, int outputSize_, double[][] w_hx, double[][] w_yh)
+	{
+
+		this.inputSize_ = inputSize_;
+		this.hiddenLayerSize_ = hiddenLayerSize_;
+		this.outputSize_ = outputSize_;
+		this.w_hx = w_hx;
+		this.w_yh = w_yh;
+		prev_delw_y=new double[outputSize_][hiddenLayerSize_+1];
+		prev_delw_h=new double[hiddenLayerSize_][inputSize_ + 1];
+		double beta_2=0;
+		curr_delw_y=0;
+		double[] tj=new double[hiddenLayerSize_+1];
+		ArrayList<Double> error = new ArrayList<Double>();
+
+
+		for (int i=0;i < hiddenLayerSize_; i++){
+			for (int j=0;j<inputSize_;j++){
+				prev_delw_h[i][j]=0;
+			}
+		}
+
+		for (int i=0;i < outputSize_; i++){
+			for (int j=0;j<hiddenLayerSize_+1;j++){
+				prev_delw_y[i][j]=0;
+			}
+		}
+
+		//forward propogation:
+		h=new double[hiddenLayerSize_+1];
+		for (int i=0;i < hiddenLayerSize_+1; i++){
+
+			h[i]=0;
+
+		}
+		//hardcoding bias term to 1:
+		h[hiddenLayerSize_]=1;
+		double[] y_hat=new double[outputSize_];
+		for (int i=0;i < outputSize_; i++){
+
+		}
+	}
+
+	public double[] NNfeedforward(double[] Input)
+	{
+
+		for (int i=0;i<hiddenLayerSize_;i++)
+		{
+
+			double s=0;
+			for(int j=0;j<inputSize_;j++){
+				s=s+w_hx[i][j]*Input[j];
+			}
+			h[i]=sigmoid(s);
+		}
+
+		double[] Output = new double[outputSize_];
+		for(int i=0;i<outputSize_;i++)
+		{
+			double s1=0;
+			for(int j=0;j<hiddenLayerSize_ + 1;j++)
+			{
+				s1=s1+w_yh[i][j]*h[j];
+			}
+			Output[i] = s1;
+
+		}
+		return Output;
+
+	}
+
+	public void NNbackpropagate(double[] Output, double[] Input, double[] Target)
+	{
+		double[] beta_2 = new double[outputSize_];
+		double[] tj = new double[hiddenLayerSize_];
+		for(int i = 0; i < outputSize_; i++) {
+			beta_2[i] = (Target[i] - Output[i]);
+		}
+			for (int j = 0; j < hiddenLayerSize_ + 1; j++) {
+				for(int i = 0; i < outputSize_; i++)
+				{
+					curr_delw_y = beta_2[i] * h[j];
+					w_yh[i][j] = w_yh[i][j] + rho * curr_delw_y + alpha * prev_delw_y[i][j];
+					prev_delw_y[i][j] = rho * curr_delw_y + alpha * prev_delw_y[i][j];
+				}
+			}
+			for (int j = 0; j < hiddenLayerSize_; j++) {
+				double s = 0;
+				for (int k = 0; k < inputSize_; k++) {
+					s = s + w_hx[j][k] * Input[k];
+				}
+				tj[j] = s;
+			}
+
+
+			double[][] delw_h = new double[hiddenLayerSize_][inputSize_ + 1];
+
+			for (int j = 0; j < hiddenLayerSize_; j++) {
+				for (int k = 0; k < inputSize_ + 1; k++) {
+					for(int i=0; i < outputSize_; i++)
+					delw_h[j][k] = beta_2[i] * sigmoid(tj[j]) * (1 - sigmoid(tj[j])) * Input[k];
+					w_hx[j][k] = w_hx[j][k] + rho * delw_h[j][k] + alpha * prev_delw_h[j][k];
+					prev_delw_h[j][k] = rho * delw_h[j][k] + alpha * prev_delw_h[j][k];
+				}
+			}
+		}
+
+
+
+
+	public void NNtrain(double[] Input, double[] Target)
+	{
+		double[] Output;
+		Output = NNfeedforward(Input);
+		NNbackpropagate(Output, Input, Target);
+	}
+
+	/*public static double NNtrain(double[][] Xtrain, double[] Ytrain,double[][] w_hx,double[][] w_yh,boolean switch1) {
 		 
 		      //variable declaration:
 		      int no_h=19; //no. of hidden units
@@ -62,18 +196,9 @@ public class NN {
 		      }
 		      int z=1;
 		      
-		      
+
 		      MatrixMultiplication matrix=new MatrixMultiplication();
-		      double[][] multiplier = new double[][] {
-	                {2, -1, 1}
-	        };
-	        double[][] multiplier1 = new double[][] {
-                {3},
-                {2},
-                {1}
-	        };
-                
-                double[][] cc=matrix.Multiply(multiplier, multiplier1);
+
                 
                 double nn_qvalue=0;
                 
@@ -165,6 +290,16 @@ public class NN {
 				return nn_qvalue;
            	
 		      
+	}*/
+
+	public double sigmoid(double x1){
+		double sig;
+
+		sig=1/(1+Math.exp(-x1));
+
+		return sig;
+
+
 	}//public static void main
 	
 }//main class
