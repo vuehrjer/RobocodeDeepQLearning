@@ -13,7 +13,7 @@ public class Rl_nn extends AdvancedRobot {
 	final double alpha = 0.1;
     final double gamma = 0.9;
     double distance=0;
-
+    double mutationChance = 0.1;
     //declaring actions
     int[] action=new int[4];
     int[] total_actions=new int[4];
@@ -110,7 +110,14 @@ public class Rl_nn extends AdvancedRobot {
 					iter=iter+1;
 				}
 
-				NN NN_obj=new NN(5, 19, 1, w_hx, w_yh); //Neural Network Function
+				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
+
+                // Testing Mutation
+                NNRobot Robo = new NNRobot(1, NN_obj);
+                NNRobot[] LonelyRobo = new NNRobot[] {Robo};
+                NNRobot[] RobosChild = mutateParents(LonelyRobo);
+                NN newNN = RobosChild[0].get_NN();
+
 				q_present_double = new double[1];
 				q_next_double = new double[1];
 				turnGunRight(360);
@@ -192,7 +199,7 @@ public class Rl_nn extends AdvancedRobot {
 
 				}
 
-				NN NN_obj=new NN(5, 19, 1, w_hx, w_yh); //Neural Network Function
+				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
 
 
 				//predict current state:
@@ -275,7 +282,36 @@ public class Rl_nn extends AdvancedRobot {
 		}//while loop ends
 	}//run function ends
 
+    public NNRobot[] mutateParents(NNRobot[] Parents)
+    {
+        int _parentSize = Parents.length;
+        NNRobot[] Children = Parents;
+        for(int i=0; i < _parentSize; i++)
+        {
+            NN ParentNN = Parents[i].get_NN();
+            for(int j = 0; j < ParentNN.w_hx.length; j++) {
+                for (int k = 0; k < ParentNN.w_hx[0].length; k++) {
+                    Random rand = new Random();
+                    float randomFactor = rand.nextFloat();
+                    if (randomFactor < mutationChance) {
+                        w_hx[j][k] = rand.nextGaussian() * 2 + w_hx[j][k];
+                    }
+                }
+            }
+            for(int j = 0; j < ParentNN.w_yh.length; j++) {
+                for (int k = 0; k < ParentNN.w_yh[0].length; k++) {
+                    Random rand = new Random();
+                    float randomFactor = rand.nextFloat();
+                    if (randomFactor < mutationChance) {
+                        w_yh[j][k] = rand.nextGaussian() * 2 + w_yh[j][k];
+                    }
+                }
+            }
 
+        }
+        return Children;
+
+    }
 	//function definitions:
 	public void onScannedRobot(ScannedRobotEvent e)
 		{
