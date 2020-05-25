@@ -1,5 +1,6 @@
 package ARL; //change the package name as required
 
+import static robocode.util.Utils.getRandom;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 import java.awt.Color;
 import java.io.BufferedReader;
@@ -8,6 +9,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import robocode.*;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Rl_nn extends AdvancedRobot {
 	final double alpha = 0.1;
@@ -534,7 +536,6 @@ public class Rl_nn extends AdvancedRobot {
 				String splitLine[] = line.split("    ");
 				for (int inN_i = 0; inN_i < w_hxs[hidN_i].length; inN_i++) {
 					w_hxs[hidN_i][inN_i]=splitLine[inN_i];
-
 				}
 				hidN_i++;
 				line= reader.readLine();
@@ -628,15 +629,65 @@ public class Rl_nn extends AdvancedRobot {
 			if(getHeading()==270){turnRight(180);}
 			ahead(150);
 		}
-		else if(xPos>width-80){
+		else if(xPos>width-80) {
 			turnLeft(getHeading() % 90);
-			if(getHeading()==0){turnLeft(90);}
-			if(getHeading()==90){turnLeft(180);}
-			if(getHeading()==180){turnRight(90);}
-			if(getHeading()==270){turnRight(0);}
+			if (getHeading() == 0) {
+				turnLeft(90);
+			}
+			if (getHeading() == 90) {
+				turnLeft(180);
+			}
+			if (getHeading() == 180) {
+				turnRight(90);
+			}
+			if (getHeading() == 270) {
+				turnRight(0);
+			}
 			ahead(150);
 		}
 
+	}
+
+	// Evolution stuff
+	// --------------------------------------------------------------
+
+	// Crosses the provided parents' attributes and returns an equal amount of children
+	// made up of randomized permutations. No resulting child will look like one of the parents.
+	public NNRobot[] crossover(NNRobot[] parents) {
+		// Check if there are enough parent robots
+		if (parents.length != 2) {
+			// TODO: Nicer exception handling
+			return null;
+		}
+
+		// Get the parents weights from the neural networks
+		double[][] father_weights = parents[0].get_NN().w_hx;
+		double[][] mother_weights = parents[1].get_NN().w_hx;
+
+		// Check for compatibility of parents
+		if (father_weights.length != mother_weights.length) {
+			// TODO: Nicer exception handling
+			return null;
+		}
+
+		// Iterate over each set of weights
+		for (int i = 0; i < father_weights.length; i++) {
+			// Get randomized split index for crossover
+			int split = ThreadLocalRandom.current().nextInt(0, father_weights[i].length);
+
+			// Swap the parent weights from the split index onwards
+			while (split < father_weights[i].length) {
+				double temp = father_weights[i][split];
+				father_weights[i][split] = mother_weights[i][split];
+				mother_weights[i][split] = temp;
+			}
+		}
+
+		// Inject the newly randomized weights into the parents
+		parents[0].get_NN().w_hx = father_weights;
+		parents[1].get_NN().w_hx = mother_weights;
+
+		return parents;
 	}
 
 }//Rl_nn class
