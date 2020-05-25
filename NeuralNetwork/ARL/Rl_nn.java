@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import robocode.*;
 import java.util.Random;
+import java.util.*;
 
 public class Rl_nn extends AdvancedRobot {
 	final double alpha = 0.1;
@@ -72,6 +73,7 @@ public class Rl_nn extends AdvancedRobot {
 	static double[][] w_yh = new double[outputNeurons][hiddenLayerNeurons + 1];
 	String[][] w_yhs = new String[outputNeurons][hiddenLayerNeurons + 1];
 
+	float topParentPercent = 0.9f; //0-1 : indicateds how many percent of the parents will be selected for the next generation
 
 	//
 	public void run(){
@@ -129,6 +131,7 @@ public class Rl_nn extends AdvancedRobot {
 					System.out.println(w_hx[0][0]);
 
 
+
 				reward=0;
 				//performing next state and scanning
 
@@ -151,6 +154,66 @@ public class Rl_nn extends AdvancedRobot {
 				NN_obj.NNtrain(inputValues, targetValues);
 				saveHiddenWeights();
 				saveOutputWeights();
+
+
+
+
+
+				//----------------------------------------Select parents test---------------------------------------
+				//--------------------------------------------------------------------------------------------------
+				/*
+				//Generates an array of 25 robots with random fitness values
+				NNRobot[] test_robot_array = new NNRobot[25];
+				for (int i = 0; i < test_robot_array.length; i++){
+					Random r = new Random();
+					int low = 10;
+					int high = 100;
+					int result = r.nextInt(high-low) + low;
+
+					NNRobot test_robot = new NNRobot(i+1);
+					test_robot.set_fitness(result);
+					test_robot_array[i] = test_robot;
+				}
+
+				System.out.println("OLD ORDER");
+				for (int i = 0; i < test_robot_array.length; i++){
+					System.out.println(test_robot_array[i].get_fitness());
+
+				}
+				System.out.println("-------------------");
+
+
+				NNRobot[] new_robot_array = selectParents(test_robot_array);
+
+				System.out.println("Top " + topParentPercent*100 + " % of parents:");
+				for (int i = 0; i < new_robot_array.length; i++){
+					System.out.println(new_robot_array[i].get_fitness());
+
+				}
+				System.out.println("-------------------");*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 			}//explore loop ends
@@ -639,4 +702,22 @@ public class Rl_nn extends AdvancedRobot {
 
 	}
 
+	public NNRobot[] selectParents(NNRobot[] robots){ //Returns the best 'topParentPercent' % of the input NNrobots sorted by their fitness values
+
+		int out_amount = (int)((float)robots.length * topParentPercent);
+		NNRobot[] best_parents = new NNRobot[out_amount]; //Create an array of NN_robots with 'topParentPercent' % of the input robots
+
+		Arrays.sort(robots, new Comparator<NNRobot>() { //Sort robots by their fitness values
+			@Override
+			public int compare(NNRobot r1, NNRobot r2) {
+				return Float.compare(r2.get_fitness(), r1.get_fitness());
+			}
+		});
+
+		for (int i = 0; i < best_parents.length; i++){ //Fill best_parents array with the best robots
+			best_parents[i] = robots[i];
+		}
+
+		return best_parents;
+	}
 }//Rl_nn class
