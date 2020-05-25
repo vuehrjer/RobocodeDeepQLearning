@@ -661,7 +661,7 @@ public class Rl_nn extends AdvancedRobot {
 			}
 
 			//Generate random weights_output array with Normal distribution
-			double[][] weights_output = new double[outputNeurons][hiddenLayerNeurons];
+			double[][] weights_output = new double[outputNeurons][hiddenLayerNeurons+1];
 			for (int j = 0; j < weights_output[0].length; j++){
 				Random r = new Random();
 				double randomValue = r.nextGaussian()*randomWeightStandardDeviation;
