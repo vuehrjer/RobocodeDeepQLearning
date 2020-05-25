@@ -661,33 +661,50 @@ public class Rl_nn extends AdvancedRobot {
 		}
 
 		// Get the parents weights from the neural networks
-		double[][] father_weights = parents[0].get_NN().w_hx;
-		double[][] mother_weights = parents[1].get_NN().w_hx;
+		double[][] father_weights_hidden = parents[0].get_NN().w_hx;
+		double[][] mother_weights_hidden = parents[1].get_NN().w_hx;
+		double[][] father_weights_output = parents[0].get_NN().w_yh;
+		double[][] mother_weights_output = parents[1].get_NN().w_yh;
 
 		// Check for compatibility of parents
-		if (father_weights.length != mother_weights.length) {
+		if (father_weights_hidden.length != mother_weights_hidden.length) {
 			// TODO: Nicer exception handling
 			return null;
 		}
 
-		// Iterate over each set of weights
-		for (int i = 0; i < father_weights.length; i++) {
+		if (father_weights_output.length != mother_weights_output.length) {
+			// TODO: Nicer exception handling
+			return null;
+		}
+
+		NNRobot son = new NNRobot(parents[0]);
+		NNRobot daughter = new NNRobot(parents[1]);
+
+		// Iterate over each set of hidden weights
+		for (int i = 0; i < father_weights_hidden.length; i++) {
 			// Get randomized split index for crossover
-			int split = ThreadLocalRandom.current().nextInt(0, father_weights[i].length);
+			int split = ThreadLocalRandom.current().nextInt(0, father_weights_hidden[i].length);
 
 			// Swap the parent weights from the split index onwards
-			while (split < father_weights[i].length) {
-				double temp = father_weights[i][split];
-				father_weights[i][split] = mother_weights[i][split];
-				mother_weights[i][split] = temp;
+			while (split < father_weights_hidden[i].length) {
+				son.get_NN().w_hx[i][split] = mother_weights_hidden[i][split];
+				daughter.get_NN().w_hx[i][split] = father_weights_hidden[i][split];
 			}
 		}
 
-		// Inject the newly randomized weights into the parents
-		parents[0].get_NN().w_hx = father_weights;
-		parents[1].get_NN().w_hx = mother_weights;
+		// Iterate over each set of output weights
+		for (int i = 0; i < father_weights_output.length; i++) {
+			// Get randomized split index for crossover
+			int split = ThreadLocalRandom.current().nextInt(0, father_weights_output[i].length);
 
-		return parents;
+			// Swap the parent weights from the split index onwards
+			while (split < father_weights_output[i].length) {
+				son.get_NN().w_yh[i][split] = mother_weights_output[i][split];
+				daughter.get_NN().w_yh[i][split] = father_weights_output[i][split];
+			}
+		}
+
+		return new NNRobot[]{son, daughter};
 	}
 
 }//Rl_nn class

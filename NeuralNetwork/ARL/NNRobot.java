@@ -16,6 +16,11 @@ public class NNRobot {
         this._NN = neuralNetwork;
     }
 
+    public NNRobot(NNRobot robot) {
+        this._ID = robot.get_ID();
+        this._NN = robot.get_NN(); // TODO: Check if this is pass by value?
+    }
+
     public void saveRobotFitness(){
 
     }
