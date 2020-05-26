@@ -24,12 +24,12 @@ public class NN {
 	public NN()
 	{ }
 
-	public NN(int inputSize_, int hiddenLayerSize_, int outputSize_, double[][] w_hx, double[][] w_yh)
+	public NN(double[][] w_hx, double[][] w_yh)
 	{
 
-		this.inputSize_ = inputSize_;
-		this.hiddenLayerSize_ = hiddenLayerSize_;
-		this.outputSize_ = outputSize_;
+		this.inputSize_ = w_hx[0].length - 1;
+		this.hiddenLayerSize_ = w_hx.length;
+		this.outputSize_ = w_yh.length;
 		this.w_hx = w_hx;
 		this.w_yh = w_yh;
 		prev_delw_y=new double[outputSize_][hiddenLayerSize_+1];
