@@ -9,12 +9,15 @@ import java.io.PrintStream;
 import robocode.*;
 import java.util.Random;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
+
 
 public class Rl_nn extends AdvancedRobot {
 	final double alpha = 0.1;
     final double gamma = 0.9;
     double distance=0;
     double mutationChance = 0.1;
+    int mutationNumber = 60;
     //declaring actions
     int[] action=new int[4];
     int[] total_actions=new int[4];
@@ -53,7 +56,7 @@ public class Rl_nn extends AdvancedRobot {
 	private double getBearing;
 	private double getTime;
 	private double normalizeBearing;
-	
+	int populationSize = 0;
 
 	//nn
 	static int iter=0;
@@ -118,8 +121,8 @@ public class Rl_nn extends AdvancedRobot {
                 // Testing Mutation
                 NNRobot Robo = new NNRobot(1, NN_obj);
                 NNRobot[] LonelyRobo = new NNRobot[] {Robo};
-                NNRobot[] RobosChild = mutateParents(LonelyRobo);
-                NN newNN = RobosChild[0].get_NN();
+                mutateParents(LonelyRobo);
+                NN newNN = LonelyRobo[0].get_NN();
 
 				q_present_double = new double[1];
 				q_next_double = new double[1];
@@ -284,36 +287,7 @@ public class Rl_nn extends AdvancedRobot {
 		}//while loop ends
 	}//run function ends
 
-    public NNRobot[] mutateParents(NNRobot[] Parents)
-    {
-        int _parentSize = Parents.length;
-        NNRobot[] Children = Parents;
-        for(int i=0; i < _parentSize; i++)
-        {
-            NN ParentNN = Parents[i].get_NN();
-            for(int j = 0; j < ParentNN.w_hx.length; j++) {
-                for (int k = 0; k < ParentNN.w_hx[0].length; k++) {
-                    Random rand = new Random();
-                    float randomFactor = rand.nextFloat();
-                    if (randomFactor < mutationChance) {
-                        w_hx[j][k] = rand.nextGaussian() * 2 + w_hx[j][k];
-                    }
-                }
-            }
-            for(int j = 0; j < ParentNN.w_yh.length; j++) {
-                for (int k = 0; k < ParentNN.w_yh[0].length; k++) {
-                    Random rand = new Random();
-                    float randomFactor = rand.nextFloat();
-                    if (randomFactor < mutationChance) {
-                        w_yh[j][k] = rand.nextGaussian() * 2 + w_yh[j][k];
-                    }
-                }
-            }
 
-        }
-        return Children;
-
-    }
 	//function definitions:
 	public void onScannedRobot(ScannedRobotEvent e)
 		{
@@ -731,4 +705,75 @@ public class Rl_nn extends AdvancedRobot {
 
 		return best_parents;
 	}
+
+    public void mutateParents(NNRobot[] Parents)
+    {
+        int _parentSize = Parents.length;
+        NNRobot[] Children = Parents;
+        for(int i=0; i < _parentSize; i++)
+        {
+            NN ParentNN = Parents[i].get_NN();
+            for(int j = 0; j < ParentNN.w_hx.length; j++) {
+                for (int k = 0; k < ParentNN.w_hx[0].length; k++) {
+                    Random rand = new Random();
+                    float randomFactor = rand.nextFloat();
+                    if (randomFactor < mutationChance) {
+                        w_hx[j][k] = rand.nextGaussian() * 2 + w_hx[j][k];
+                    }
+                }
+            }
+            for(int j = 0; j < ParentNN.w_yh.length; j++) {
+                for (int k = 0; k < ParentNN.w_yh[0].length; k++) {
+                    Random rand = new Random();
+                    float randomFactor = rand.nextFloat();
+                    if (randomFactor < mutationChance) {
+                        w_yh[j][k] = rand.nextGaussian() * 2 + w_yh[j][k];
+                    }
+                }
+            }
+        }
+    }
+
+	public NNRobot[] makeEvolution(NNRobot[] robots)
+    {
+        NNRobot[] nextGeneration = new NNRobot[populationSize];
+        NNRobot[] parents;
+        parents = selectParents(robots);
+        //NNRobot diverseRobot = getMostDistinct();
+        nextGeneration[0] = parents[0];
+        //nextGeneration[1]= diverseRobot;
+        int crossoverNumber = populationSize - mutationNumber - 2;
+        int i=2;
+        while(i < nextGeneration.length)
+        {
+            if(i < crossoverNumber -2)
+            {
+                NNRobot[] children;
+                int random1 = ThreadLocalRandom.current().nextInt(0, parents.length);
+                int random2 = ThreadLocalRandom.current().nextInt(0, parents.length);
+                NNRobot parent1 = parents[random1];
+                NNRobot parent2 = parents[random2];
+                children = crossover(parent1, parent2);
+                nextGeneration[i] = children[0];
+                nextGeneration[i+1] = children[1];
+                i+=2;
+            }
+            else
+            {
+                NNRobot[] dummyParents = new NNRobot[mutationNumber];
+                for(int j = 0; j < mutationNumber; j++)
+                {
+                    int randomDummy = ThreadLocalRandom.current().nextInt(0, parents.length);
+                    dummyParents[j] = parents[randomDummy];
+                    nextGeneration[i] = dummyParents[j];
+                    i++;
+                }
+            }
+        }
+        return nextGeneration;
+    }
+
+
+
+
 }//Rl_nn class
