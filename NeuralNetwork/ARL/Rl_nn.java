@@ -85,6 +85,26 @@ public class Rl_nn extends AdvancedRobot {
 		//Comment the following function in and start he robot once to initialize the .txt files correctly.
 		//initializeWeightFiles();
 
+
+
+		//----------------------------------------Select parents test---------------------------------------
+		//--------------------------------------------------------------------------------------------------
+
+				//Generates an array of 25 robots with random fitness values
+				NNRobot[] test_robot_array = initializeRobots(25);
+				System.out.println("OLD ORDER");
+				for (int i = 0; i < test_robot_array.length; i++){
+					System.out.println(test_robot_array[i].get_fitness());
+				}
+				System.out.println("-------------------");
+				NNRobot[] new_robot_array = selectParents(test_robot_array);
+				System.out.println("Top " + topParentPercent*100 + " % of parents:");
+				for (int i = 0; i < new_robot_array.length; i++){
+					System.out.println(new_robot_array[i].get_fitness());
+				}
+				System.out.println("-------------------");
+
+
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
 		setBodyColor(Color.PINK);
 		while(true){
@@ -701,49 +721,46 @@ public class Rl_nn extends AdvancedRobot {
 			best_parents[i] = robots[i];
 		}
 
-		return best_parents;
-	}
+		//Get robot with biggest diversity to best robot
+		int best_diversity_index = 1;
+		double best_diversity = 0;
 
-	public void initializeWeightFiles(){
+		for (int i = 1; i < best_parents.length; i++){
+			double total_diversity = 0;
 
-		PrintStream hiddenWeightsStream = null;
-		try {
-			hiddenWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_hidden.txt")));
-			for (int i=0;i<hiddenLayerNeurons;i++) {
+			for (int j = 0; j < best_parents[i].get_NN().w_hx.length; j++){
+				for (int k = 0; k < best_parents[i].get_NN().w_hx[0].length; k++){
+					double diversity = Math.pow(best_parents[0].get_NN().w_hx[j][k] - best_parents[i].get_NN().w_hx[j][k], 2);
 
-				String outputLine = "0.000000000000000";
-				for (int j = 1; j < inputNeurons; j++) {
-					outputLine += "    0.000000000000000";
+					total_diversity += diversity;
 				}
-				hiddenWeightsStream.println(outputLine);
-
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			hiddenWeightsStream.flush();
-			hiddenWeightsStream.close();
+			for (int j = 0; j < best_parents[i].get_NN().w_yh.length; j++){
+				for (int k = 0; k < best_parents[i].get_NN().w_yh[0].length; k++){
+					double diversity = Math.pow(best_parents[0].get_NN().w_yh[j][k] - best_parents[i].get_NN().w_yh[j][k], 2);
+
+					total_diversity += diversity;
+				}
+			}
+
+			if (total_diversity >=  best_diversity){
+				best_diversity_index = i;
+				best_diversity = total_diversity;
+			}
 		}
 
+		//Put robot with biggest diversity from best robot to the first position of the output array
+		NNRobot[] output_array = new NNRobot[out_amount];
+		output_array[0] = best_parents[best_diversity_index];
 
-		PrintStream outputWeightsStream = null;
-		try {
-			outputWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_output.txt")));
-			for (int i=0;i<outputNeurons;i++) {
-
-				String outputLine = "0.000000000000000";
-				for (int j = 0; j < hiddenLayerNeurons; j++) {
-					outputLine += "    0.000000000000000";
-				}
-
-				outputWeightsStream.println(outputLine);
+		int best_parents_index = 0;
+		for (int i = 1; i < output_array.length; i++){
+			if (i == best_diversity_index){
+				best_parents_index++;
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			outputWeightsStream.flush();
-			outputWeightsStream.close();
+			output_array[i] = best_parents[best_parents_index];
+			best_parents_index++;
 		}
-
+		return output_array;
 	}
 }//Rl_nn class
