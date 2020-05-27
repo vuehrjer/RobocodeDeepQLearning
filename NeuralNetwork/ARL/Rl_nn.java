@@ -653,32 +653,24 @@ public class Rl_nn extends AdvancedRobot {
 
 	// Crosses the provided parents' attributes and returns an equal amount of children
 	// made up of randomized permutations. No resulting child will look like one of the parents.
-	public NNRobot[] crossover(NNRobot[] parents) {
-		// Check if there are enough parent robots
-		if (parents.length != 2) {
-			// TODO: Nicer exception handling
-			return null;
-		}
-
+	public NNRobot[] crossover(NNRobot father, NNRobot mother) {
 		// Get the parents weights from the neural networks
-		double[][] father_weights_hidden = parents[0].get_NN().w_hx;
-		double[][] mother_weights_hidden = parents[1].get_NN().w_hx;
-		double[][] father_weights_output = parents[0].get_NN().w_yh;
-		double[][] mother_weights_output = parents[1].get_NN().w_yh;
+		double[][] father_weights_hidden = father.get_NN().w_hx;
+		double[][] mother_weights_hidden = mother.get_NN().w_hx;
+		double[][] father_weights_output = father.get_NN().w_yh;
+		double[][] mother_weights_output = mother.get_NN().w_yh;
 
 		// Check for compatibility of parents
 		if (father_weights_hidden.length != mother_weights_hidden.length) {
-			// TODO: Nicer exception handling
 			return null;
 		}
 
 		if (father_weights_output.length != mother_weights_output.length) {
-			// TODO: Nicer exception handling
 			return null;
 		}
 
-		NNRobot son = new NNRobot(parents[0]);
-		NNRobot daughter = new NNRobot(parents[1]);
+		NNRobot son = new NNRobot(father);
+		NNRobot daughter = new NNRobot(mother);
 
 		// Iterate over each set of hidden weights
 		for (int i = 0; i < father_weights_hidden.length; i++) {
