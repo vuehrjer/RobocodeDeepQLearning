@@ -2,10 +2,8 @@ package ARL; //change the package name as required
 
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 import java.awt.Color;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
+
 import robocode.*;
 import java.util.Random;
 import java.util.*;
@@ -116,11 +114,25 @@ public class Rl_nn extends AdvancedRobot {
 				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
 
                 // Testing Mutation
-                NNRobot Robo = new NNRobot(1, NN_obj);
+                NNRobot Robo = new NNRobot(1, NN_obj, this);
                 NNRobot[] LonelyRobo = new NNRobot[] {Robo};
                 NNRobot[] RobosChild = mutateParents(LonelyRobo);
                 NN newNN = RobosChild[0].get_NN();
 
+                //test id
+				resetConfig("config.txt");
+				int id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				id = selectNextRobotID("config.txt");
+				resetConfig("config.txt");
 				q_present_double = new double[1];
 				q_next_double = new double[1];
 				turnGunRight(360);
@@ -316,58 +328,97 @@ public class Rl_nn extends AdvancedRobot {
     }
 	//function definitions:
 	public void onScannedRobot(ScannedRobotEvent e)
-		{
-		double absBearing=e.getBearingRadians()+getHeadingRadians();
+	{
+	double absBearing=e.getBearingRadians()+getHeadingRadians();
 
-		this.absBearing=absBearing;
-		double getVelocity=e.getVelocity();
-		double getHeadingRadians=e.getHeadingRadians();
-		this.getHeadingRadians=getHeadingRadians;
-		this.getVelocity=getVelocity;
+	this.absBearing=absBearing;
+	double getVelocity=e.getVelocity();
+	double getHeadingRadians=e.getHeadingRadians();
+	this.getHeadingRadians=getHeadingRadians;
+	this.getVelocity=getVelocity;
 
-		double getBearing=e.getBearing();
-		this.getBearing=getBearing;
-		double getTime=getTime();
-		this.getTime=getTime;
-		gunTurnAmt = normalRelativeAngleDegrees(e.getBearing() + (getHeading() - getRadarHeading()));
-		this.gunTurnAmt=gunTurnAmt;
+	double getBearing=e.getBearing();
+	this.getBearing=getBearing;
+	double getTime=getTime();
+	this.getTime=getTime;
+	gunTurnAmt = normalRelativeAngleDegrees(e.getBearing() + (getHeading() - getRadarHeading()));
+	this.gunTurnAmt=gunTurnAmt;
 
-		double normalizeBearing=normalizeBearing(getBearing + 90 - (15 * 1));
-		this.normalizeBearing=normalizeBearing;
-		robot_energy=getEnergy();
-		enemy_energy=e.getEnergy();
-		distance = e.getDistance(); //distance to the enemy
-		qdistancetoenemy=quantize_distance(distance); //distance to enemy state number 3
+	double normalizeBearing=normalizeBearing(getBearing + 90 - (15 * 1));
+	this.normalizeBearing=normalizeBearing;
+	robot_energy=getEnergy();
+	enemy_energy=e.getEnergy();
+	distance = e.getDistance(); //distance to the enemy
+	qdistancetoenemy=quantize_distance(distance); //distance to enemy state number 3
 
-		//fire
-		if(qdistancetoenemy<=2.50){fire(3);
+	//fire
+	if(qdistancetoenemy<=2.50){fire(3);
 
+	}
+	if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(3);}
+	if(qdistancetoenemy>5.00&&qdistancetoenemy<7.50){fire(1);}
+	//fire
+
+	//your robot
+
+	qrl_x=quantize_position(getX()); //your x position -state number 1
+	qrl_y=quantize_position(getY()); //your y position -state number 2
+	//Calculating Enemy X & Y:
+	double angleToEnemy = e.getBearing();
+	// Calculate the angle to the scanned robot
+	double angle = Math.toRadians((getHeading() + angleToEnemy % 360));
+	// Calculate the coordinates of the robot
+	double enemyX = (getX() + Math.sin(angle) * e.getDistance());
+	double enemyY = (getY() + Math.cos(angle) * e.getDistance());
+	qenemy_x=quantize_position(enemyX);
+	qenemy_y=quantize_position(enemyY);
+	//distance to enemy
+	//absolute angle to enemy
+	absbearing=absoluteBearing((float) getX(),(float) getY(),(float) enemyX,(float) enemyY);
+	q_absbearing=quantize_angle(absbearing); //state number 4
+
+
+	}
+
+	public int selectNextRobotID(String robotAndRoundFile) {
+		int tempRobotRounds = 10; //TODO: replace with actual round numbers
+		int id = -1;
+		int roundNum;
+		File file = getDataFile(robotAndRoundFile);
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader(file));
+			id = Integer.parseInt(reader.readLine());
+			roundNum = Integer.parseInt(reader.readLine());
+			reader.close();
+
+			if (roundNum != 0 && roundNum % tempRobotRounds == 0) {
+				id++;
+				roundNum = 0;
+			}else{
+				++roundNum;
+			}
+
+			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), false);
+			writer.write(id + "\n");
+			writer.write(roundNum + "\n");
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
-		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(3);}
-		if(qdistancetoenemy>5.00&&qdistancetoenemy<7.50){fire(1);}
-		//fire
+		return id;
+	}
 
-		//your robot
-
-		qrl_x=quantize_position(getX()); //your x position -state number 1
-		qrl_y=quantize_position(getY()); //your y position -state number 2
-		//Calculating Enemy X & Y:
-		double angleToEnemy = e.getBearing();
-		// Calculate the angle to the scanned robot
-		double angle = Math.toRadians((getHeading() + angleToEnemy % 360));
-		// Calculate the coordinates of the robot
-		double enemyX = (getX() + Math.sin(angle) * e.getDistance());
-		double enemyY = (getY() + Math.cos(angle) * e.getDistance());
-		qenemy_x=quantize_position(enemyX);
-		qenemy_y=quantize_position(enemyY);
-		//distance to enemy
-		//absolute angle to enemy
-		absbearing=absoluteBearing((float) getX(),(float) getY(),(float) enemyX,(float) enemyY);
-		q_absbearing=quantize_angle(absbearing); //state number 4
-
-
+	public void resetConfig(String robotAndRoundFile){
+		File file = getDataFile(robotAndRoundFile);
+		try {
+			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), false);
+			writer.write("0\n0\n");
+			writer.close();
 		}
-
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 	public double normalizeBearing(double angle) {
 		while (angle >  180) angle -= 360;
 		while (angle < -180) angle += 360;
@@ -731,4 +782,5 @@ public class Rl_nn extends AdvancedRobot {
 
 		return best_parents;
 	}
+
 }//Rl_nn class
