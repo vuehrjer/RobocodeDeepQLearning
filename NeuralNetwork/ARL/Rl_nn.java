@@ -82,25 +82,6 @@ public class Rl_nn extends AdvancedRobot {
 	//
 	public void run(){
 
-
-		//----------------------------------------Select parents test---------------------------------------
-		//--------------------------------------------------------------------------------------------------
-
-				//Generates an array of 25 robots with random fitness values
-				NNRobot[] test_robot_array = initializeRobots(25);
-				System.out.println("OLD ORDER");
-				for (int i = 0; i < test_robot_array.length; i++){
-					System.out.println(test_robot_array[i].get_fitness());
-				}
-				System.out.println("-------------------");
-				NNRobot[] new_robot_array = selectParents(test_robot_array);
-				System.out.println("Top " + topParentPercent*100 + " % of parents:");
-				for (int i = 0; i < new_robot_array.length; i++){
-					System.out.println(new_robot_array[i].get_fitness());
-				}
-				System.out.println("-------------------");
-
-
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
 		setBodyColor(Color.PINK);
 		while(true){
@@ -798,7 +779,7 @@ public class Rl_nn extends AdvancedRobot {
 		return output_array;
 	}
 
-	
+
 	// Evolution stuff
 	// --------------------------------------------------------------
 
