@@ -196,4 +196,47 @@ public class NNRobot {
         if (fitnesses.length != 0) _fitness = (float)(sum/fitnesses.length);
         else _fitness = 0;
     }
+
+    public void initializeWeightFiles(){
+
+        PrintStream hiddenWeightsStream = null;
+        try {
+            hiddenWeightsStream = new PrintStream(new RobocodeFileOutputStream(robotRef.getDataFile(_ID +"weights_hidden.txt")));
+            for (int i = 0; i< Rl_nn.hiddenLayerNeurons; i++) {
+
+                String outputLine = "0.000000000000000";
+                for (int j = 1; j < Rl_nn.inputNeurons; j++) {
+                    outputLine += "    0.000000000000000";
+                }
+                hiddenWeightsStream.println(outputLine);
+
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+            hiddenWeightsStream.flush();
+            hiddenWeightsStream.close();
+        }
+
+
+        PrintStream outputWeightsStream = null;
+        try {
+            outputWeightsStream = new PrintStream(new RobocodeFileOutputStream(robotRef.getDataFile(_ID +"weights_output.txt")));
+            for (int i=0;i<Rl_nn.outputNeurons;i++) {
+
+                String outputLine = "0.000000000000000";
+                for (int j = 0; j < Rl_nn.hiddenLayerNeurons; j++) {
+                    outputLine += "    0.000000000000000";
+                }
+
+                outputWeightsStream.println(outputLine);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+            outputWeightsStream.flush();
+            outputWeightsStream.close();
+        }
+
+    }
 }
