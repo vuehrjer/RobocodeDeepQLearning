@@ -1,6 +1,7 @@
 package ARL;
 
 import robocode.RobocodeFileOutputStream;
+import robocode.RobocodeFileWriter;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -22,7 +23,12 @@ public class NNRobot {
     }
 
     public void saveRobotFitness(){
-        saveFitness(_ID + "fitness.txt");
+        try {
+            saveFitness(_ID + "fitness.txt");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     public void saveRobot(){
@@ -31,24 +37,18 @@ public class NNRobot {
 
         //output weights
         saveWeights(_NN.w_yh,_ID + "weights_output.txt");
-
-        resetFitness(_ID + "fitness.txt");
-    }
-
-    private void resetFitness(String fileName) {
-
-        PrintStream fitnessStream = null;
-        try {
-            fitnessStream = new PrintStream(new RobocodeFileOutputStream(fileName, false));
-
+        try{
+            resetFitness(_ID + "fitness.txt");
         } catch (IOException e) {
             e.printStackTrace();
-
-        } finally {
-            fitnessStream.flush();
-            fitnessStream.close();
         }
+    }
 
+    private void resetFitness(String fileName) throws IOException {
+
+        File file = robotRef.getDataFile(fileName);
+        RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),false);
+        writer.close();
     }
 
     public void loadRobot(){
@@ -111,7 +111,7 @@ public class NNRobot {
 
                 String outputLine = String.valueOf(weights[i][0]);
                 for (int j = 1; j < weights[i].length; j++) {
-                    outputLine += "    " + String.valueOf(weights[i][j]);
+                    outputLine += "    " + weights[i][j];
                 }
                 weightsStream.println(outputLine);
 
@@ -157,25 +157,17 @@ public class NNRobot {
 
     }
 
-    private void saveFitness(String fileName){
-        PrintStream fitnessStream = null;
-        try {
-            fitnessStream = new PrintStream(new RobocodeFileOutputStream(fileName, true));
-            fitnessStream.println(_fitness);
+    private void saveFitness(String fileName) throws IOException{
 
-        } catch (IOException e) {
-            e.printStackTrace();
-
-        }finally {
-            fitnessStream.flush();
-            fitnessStream.close();
-
-        }
+        File file = robotRef.getDataFile(fileName);
+        RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),true);
+        writer.write(_fitness + "\n");
+        writer.close();
     }
 
     private double[] loadFitness(String fileName) throws IOException{
         BufferedReader reader = new BufferedReader(new FileReader(robotRef.getDataFile(fileName)));
-        ArrayList<String> input = new ArrayList<String>();
+        ArrayList<String> input = new ArrayList<>();
         try{
             String line = reader.readLine();
             while (line != null) {
@@ -201,6 +193,7 @@ public class NNRobot {
         for (double f: fitnesses) {
             sum += f;
         }
-        _fitness = (float)(sum/fitnesses.length);
+        if (fitnesses.length != 0) _fitness = (float)(sum/fitnesses.length);
+        else _fitness = 0;
     }
 }
