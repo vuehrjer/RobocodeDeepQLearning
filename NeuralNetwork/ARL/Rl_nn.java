@@ -64,8 +64,9 @@ public class Rl_nn extends AdvancedRobot {
 	double dummy=0;
 
 	static int inputNeurons = 6;
-	static int hiddenLayerNeurons = 19;
-	static int outputNeurons = 1;
+	static int hiddenLayerNeurons = 25;
+	static int outputNeurons = 2;
+
 	double[] inputValues = new double[inputNeurons];
 	double[] inputValues_next = new double[inputNeurons];
 	double[] targetValues = new double[outputNeurons];
@@ -77,11 +78,12 @@ public class Rl_nn extends AdvancedRobot {
 	static double[][] w_yh = new double[outputNeurons][hiddenLayerNeurons + 1];
 	String[][] w_yhs = new String[outputNeurons][hiddenLayerNeurons + 1];
 
-	float topParentPercent = 0.9f; //0-1 : indicateds how many percent of the parents will be selected for the next generation
+	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 
 	//
 	public void run(){
+
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
 		setBodyColor(Color.PINK);
 		while(true){
@@ -120,7 +122,7 @@ public class Rl_nn extends AdvancedRobot {
 				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
 
                 // Testing Mutation
-                NNRobot Robo = new NNRobot(1, NN_obj);
+                NNRobot Robo = new NNRobot(1, NN_obj, this);
                 NNRobot[] LonelyRobo = new NNRobot[] {Robo};
                 mutateParents(LonelyRobo);
                 NN newNN = LonelyRobo[0].get_NN();
@@ -664,8 +666,6 @@ public class Rl_nn extends AdvancedRobot {
 		NNRobot[] robotArray = new NNRobot[numberRobots];
 
 		for (int i = 0; i < numberRobots; i++){
-			NNRobot newRobot = new NNRobot(i+1);
-			newRobot.set_fitness(0);
 
 			//Generate random weights_hidden array with Normal distribution
 			double[][] weights_hidden = new double[hiddenLayerNeurons][inputNeurons]; //Create
@@ -684,16 +684,14 @@ public class Rl_nn extends AdvancedRobot {
 				double randomValue = r.nextGaussian()*randomWeightStandardDeviation;
 				weights_output[0][j] = randomValue;
 			}
-
 			NN newNN = new NN(weights_hidden, weights_output);
-			newRobot.set_NN(newNN);
-
+			NNRobot newRobot = new NNRobot(i+1, newNN, this);
+			newRobot.set_fitness(0);
 			robotArray[i] = newRobot;
 		}
-
 		return robotArray;
 
-		}
+	}
 
 	public NNRobot[] selectParents(NNRobot[] robots){ //Returns the best 'topParentPercent' % of the input NNrobots sorted by their fitness values
 
@@ -711,8 +709,50 @@ public class Rl_nn extends AdvancedRobot {
 			best_parents[i] = robots[i];
 		}
 
-		return best_parents;
+		//Get robot with biggest diversity to best robot
+		int best_diversity_index = 1;
+		double best_diversity = 0;
+
+		for (int i = 1; i < best_parents.length; i++){
+			double total_diversity = 0;
+
+			for (int j = 0; j < best_parents[i].get_NN().w_hx.length; j++){
+				for (int k = 0; k < best_parents[i].get_NN().w_hx[0].length; k++){
+					double diversity = Math.pow(best_parents[0].get_NN().w_hx[j][k] - best_parents[i].get_NN().w_hx[j][k], 2);
+
+					total_diversity += diversity;
+				}
+			}
+			for (int j = 0; j < best_parents[i].get_NN().w_yh.length; j++){
+				for (int k = 0; k < best_parents[i].get_NN().w_yh[0].length; k++){
+					double diversity = Math.pow(best_parents[0].get_NN().w_yh[j][k] - best_parents[i].get_NN().w_yh[j][k], 2);
+
+					total_diversity += diversity;
+				}
+			}
+
+			if (total_diversity >=  best_diversity){
+				best_diversity_index = i;
+				best_diversity = total_diversity;
+			}
+		}
+
+		//Put robot with biggest diversity from best robot to the first position of the output array
+		NNRobot[] output_array = new NNRobot[out_amount];
+		output_array[0] = best_parents[best_diversity_index];
+
+		int best_parents_index = 0;
+		for (int i = 1; i < output_array.length; i++){
+			if (i == best_diversity_index){
+				best_parents_index++;
+			}
+			output_array[i] = best_parents[best_parents_index];
+			best_parents_index++;
+		}
+		return output_array;
 	}
+
+
 	// Evolution stuff
 	// --------------------------------------------------------------
 
