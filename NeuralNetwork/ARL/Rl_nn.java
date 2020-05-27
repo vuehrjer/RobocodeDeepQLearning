@@ -10,12 +10,13 @@ import java.io.PrintStream;
 import robocode.*;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.*;
 
 public class Rl_nn extends AdvancedRobot {
 	final double alpha = 0.1;
     final double gamma = 0.9;
     double distance=0;
-
+    double mutationChance = 0.1;
     //declaring actions
     int[] action=new int[4];
     int[] total_actions=new int[4];
@@ -74,6 +75,8 @@ public class Rl_nn extends AdvancedRobot {
 	static double[][] w_yh = new double[outputNeurons][hiddenLayerNeurons + 1];
 	String[][] w_yhs = new String[outputNeurons][hiddenLayerNeurons + 1];
 
+	float topParentPercent = 0.9f; //0-1 : indicateds how many percent of the parents will be selected for the next generation
+	float randomWeightStandardDeviation = 5;
 
 	//
 	public void run(){
@@ -112,7 +115,14 @@ public class Rl_nn extends AdvancedRobot {
 					iter=iter+1;
 				}
 
-				NN NN_obj=new NN(5, 19, 1, w_hx, w_yh); //Neural Network Function
+				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
+
+                // Testing Mutation
+                NNRobot Robo = new NNRobot(1, NN_obj);
+                NNRobot[] LonelyRobo = new NNRobot[] {Robo};
+                NNRobot[] RobosChild = mutateParents(LonelyRobo);
+                NN newNN = RobosChild[0].get_NN();
+
 				q_present_double = new double[1];
 				q_next_double = new double[1];
 				turnGunRight(360);
@@ -154,7 +164,6 @@ public class Rl_nn extends AdvancedRobot {
 				saveHiddenWeights();
 				saveOutputWeights();
 
-
 			}//explore loop ends
 
 			//Greedy Moves//
@@ -194,7 +203,7 @@ public class Rl_nn extends AdvancedRobot {
 
 				}
 
-				NN NN_obj=new NN(5, 19, 1, w_hx, w_yh); //Neural Network Function
+				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
 
 
 				//predict current state:
@@ -277,7 +286,36 @@ public class Rl_nn extends AdvancedRobot {
 		}//while loop ends
 	}//run function ends
 
+    public NNRobot[] mutateParents(NNRobot[] Parents)
+    {
+        int _parentSize = Parents.length;
+        NNRobot[] Children = Parents;
+        for(int i=0; i < _parentSize; i++)
+        {
+            NN ParentNN = Parents[i].get_NN();
+            for(int j = 0; j < ParentNN.w_hx.length; j++) {
+                for (int k = 0; k < ParentNN.w_hx[0].length; k++) {
+                    Random rand = new Random();
+                    float randomFactor = rand.nextFloat();
+                    if (randomFactor < mutationChance) {
+                        w_hx[j][k] = rand.nextGaussian() * 2 + w_hx[j][k];
+                    }
+                }
+            }
+            for(int j = 0; j < ParentNN.w_yh.length; j++) {
+                for (int k = 0; k < ParentNN.w_yh[0].length; k++) {
+                    Random rand = new Random();
+                    float randomFactor = rand.nextFloat();
+                    if (randomFactor < mutationChance) {
+                        w_yh[j][k] = rand.nextGaussian() * 2 + w_yh[j][k];
+                    }
+                }
+            }
 
+        }
+        return Children;
+
+    }
 	//function definitions:
 	public void onScannedRobot(ScannedRobotEvent e)
 		{
@@ -648,6 +686,60 @@ public class Rl_nn extends AdvancedRobot {
 
 	}
 
+	public NNRobot[] initializeRobots(int numberRobots){
+
+		NNRobot[] robotArray = new NNRobot[numberRobots];
+
+		for (int i = 0; i < numberRobots; i++){
+			NNRobot newRobot = new NNRobot(i+1);
+			newRobot.set_fitness(0);
+
+			//Generate random weights_hidden array with Normal distribution
+			double[][] weights_hidden = new double[hiddenLayerNeurons][inputNeurons]; //Create
+			for (int j = 0; j < weights_hidden.length; j++){
+				for (int k = 0; k < weights_hidden[0].length; k++){
+					Random r = new Random();
+					double randomValue = r.nextGaussian()*randomWeightStandardDeviation;
+					weights_hidden[j][k] = randomValue;
+				}
+			}
+
+			//Generate random weights_output array with Normal distribution
+			double[][] weights_output = new double[outputNeurons][hiddenLayerNeurons+1];
+			for (int j = 0; j < weights_output[0].length; j++){
+				Random r = new Random();
+				double randomValue = r.nextGaussian()*randomWeightStandardDeviation;
+				weights_output[0][j] = randomValue;
+			}
+
+			NN newNN = new NN(weights_hidden, weights_output);
+			newRobot.set_NN(newNN);
+
+			robotArray[i] = newRobot;
+		}
+
+		return robotArray;
+
+		}
+
+	public NNRobot[] selectParents(NNRobot[] robots){ //Returns the best 'topParentPercent' % of the input NNrobots sorted by their fitness values
+
+		int out_amount = (int)((float)robots.length * topParentPercent);
+		NNRobot[] best_parents = new NNRobot[out_amount]; //Create an array of NN_robots with 'topParentPercent' % of the input robots
+
+		Arrays.sort(robots, new Comparator<NNRobot>() { //Sort robots by their fitness values
+			@Override
+			public int compare(NNRobot r1, NNRobot r2) {
+				return Float.compare(r2.get_fitness(), r1.get_fitness());
+			}
+		});
+
+		for (int i = 0; i < best_parents.length; i++){ //Fill best_parents array with the best robots
+			best_parents[i] = robots[i];
+		}
+
+		return best_parents;
+	}
 	// Evolution stuff
 	// --------------------------------------------------------------
 
