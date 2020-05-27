@@ -59,9 +59,12 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
+	//When changing any of the 3 values below uncomment initializeWeightFiles() in the run method and start the robot once to initialize the weights .txt files correctly
+	//After that it should be commented out again.
 	static int inputNeurons = 6;
-	static int hiddenLayerNeurons = 19;
-	static int outputNeurons = 1;
+	static int hiddenLayerNeurons = 25;
+	static int outputNeurons = 2;
+
 	double[] inputValues = new double[inputNeurons];
 	double[] inputValues_next = new double[inputNeurons];
 	double[] targetValues = new double[outputNeurons];
@@ -73,11 +76,15 @@ public class Rl_nn extends AdvancedRobot {
 	static double[][] w_yh = new double[outputNeurons][hiddenLayerNeurons + 1];
 	String[][] w_yhs = new String[outputNeurons][hiddenLayerNeurons + 1];
 
-	float topParentPercent = 0.9f; //0-1 : indicateds how many percent of the parents will be selected for the next generation
+	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 
 	//
 	public void run(){
+
+		//Comment the following function in and start he robot once to initialize the .txt files correctly.
+		//initializeWeightFiles();
+
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
 		setBodyColor(Color.PINK);
 		while(true){
@@ -695,5 +702,48 @@ public class Rl_nn extends AdvancedRobot {
 		}
 
 		return best_parents;
+	}
+
+	public void initializeWeightFiles(){
+
+		PrintStream hiddenWeightsStream = null;
+		try {
+			hiddenWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_hidden.txt")));
+			for (int i=0;i<hiddenLayerNeurons;i++) {
+
+				String outputLine = "0.000000000000000";
+				for (int j = 1; j < inputNeurons; j++) {
+					outputLine += "    0.000000000000000";
+				}
+				hiddenWeightsStream.println(outputLine);
+
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}finally {
+			hiddenWeightsStream.flush();
+			hiddenWeightsStream.close();
+		}
+
+
+		PrintStream outputWeightsStream = null;
+		try {
+			outputWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_output.txt")));
+			for (int i=0;i<outputNeurons;i++) {
+
+				String outputLine = "0.000000000000000";
+				for (int j = 0; j < hiddenLayerNeurons; j++) {
+					outputLine += "    0.000000000000000";
+				}
+
+				outputWeightsStream.println(outputLine);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}finally {
+			outputWeightsStream.flush();
+			outputWeightsStream.close();
+		}
+
 	}
 }//Rl_nn class
