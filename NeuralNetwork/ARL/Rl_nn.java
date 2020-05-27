@@ -838,9 +838,8 @@ public class Rl_nn extends AdvancedRobot {
         NNRobot[] nextGeneration = new NNRobot[populationSize];
         NNRobot[] parents;
         parents = selectParents(robots);
-        //NNRobot diverseRobot = getMostDistinct();
-        nextGeneration[0] = parents[0];
-        //nextGeneration[1]= diverseRobot;
+		nextGeneration[0]= parents[0];
+        nextGeneration[1] = parents[1];
         int crossoverNumber = populationSize - mutationNumber - 2;
         int i=2;
         while(i < nextGeneration.length)
