@@ -1,5 +1,6 @@
 package ARL; //change the package name as required
 
+import static robocode.util.Utils.getRandom;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 import java.awt.Color;
 import java.io.BufferedReader;
@@ -8,13 +9,14 @@ import java.io.IOException;
 import java.io.PrintStream;
 import robocode.*;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.*;
 
 public class Rl_nn extends AdvancedRobot {
 	final double alpha = 0.1;
     final double gamma = 0.9;
     double distance=0;
-
+    double mutationChance = 0.1;
     //declaring actions
     int[] action=new int[4];
     int[] total_actions=new int[4];
@@ -141,6 +143,13 @@ public class Rl_nn extends AdvancedRobot {
 				}
 
 				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
+
+                // Testing Mutation
+                NNRobot Robo = new NNRobot(1, NN_obj);
+                NNRobot[] LonelyRobo = new NNRobot[] {Robo};
+                NNRobot[] RobosChild = mutateParents(LonelyRobo);
+                NN newNN = RobosChild[0].get_NN();
+
 				q_present_double = new double[1];
 				q_next_double = new double[1];
 				turnGunRight(360);
@@ -157,7 +166,6 @@ public class Rl_nn extends AdvancedRobot {
 				//NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh,true);
 
 					System.out.println(w_hx[0][0]);
-
 
 
 				reward=0;
@@ -305,7 +313,36 @@ public class Rl_nn extends AdvancedRobot {
 		}//while loop ends
 	}//run function ends
 
+    public NNRobot[] mutateParents(NNRobot[] Parents)
+    {
+        int _parentSize = Parents.length;
+        NNRobot[] Children = Parents;
+        for(int i=0; i < _parentSize; i++)
+        {
+            NN ParentNN = Parents[i].get_NN();
+            for(int j = 0; j < ParentNN.w_hx.length; j++) {
+                for (int k = 0; k < ParentNN.w_hx[0].length; k++) {
+                    Random rand = new Random();
+                    float randomFactor = rand.nextFloat();
+                    if (randomFactor < mutationChance) {
+                        w_hx[j][k] = rand.nextGaussian() * 2 + w_hx[j][k];
+                    }
+                }
+            }
+            for(int j = 0; j < ParentNN.w_yh.length; j++) {
+                for (int k = 0; k < ParentNN.w_yh[0].length; k++) {
+                    Random rand = new Random();
+                    float randomFactor = rand.nextFloat();
+                    if (randomFactor < mutationChance) {
+                        w_yh[j][k] = rand.nextGaussian() * 2 + w_yh[j][k];
+                    }
+                }
+            }
 
+        }
+        return Children;
+
+    }
 	//function definitions:
 	public void onScannedRobot(ScannedRobotEvent e)
 		{
@@ -564,7 +601,6 @@ public class Rl_nn extends AdvancedRobot {
 				String splitLine[] = line.split("    ");
 				for (int inN_i = 0; inN_i < w_hxs[hidN_i].length; inN_i++) {
 					w_hxs[hidN_i][inN_i]=splitLine[inN_i];
-
 				}
 				hidN_i++;
 				line= reader.readLine();
@@ -658,12 +694,20 @@ public class Rl_nn extends AdvancedRobot {
 			if(getHeading()==270){turnRight(180);}
 			ahead(150);
 		}
-		else if(xPos>width-80){
+		else if(xPos>width-80) {
 			turnLeft(getHeading() % 90);
-			if(getHeading()==0){turnLeft(90);}
-			if(getHeading()==90){turnLeft(180);}
-			if(getHeading()==180){turnRight(90);}
-			if(getHeading()==270){turnRight(0);}
+			if (getHeading() == 0) {
+				turnLeft(90);
+			}
+			if (getHeading() == 90) {
+				turnLeft(180);
+			}
+			if (getHeading() == 180) {
+				turnRight(90);
+			}
+			if (getHeading() == 270) {
+				turnRight(0);
+			}
 			ahead(150);
 		}
 
@@ -763,4 +807,55 @@ public class Rl_nn extends AdvancedRobot {
 		}
 		return output_array;
 	}
+	// Evolution stuff
+	// --------------------------------------------------------------
+
+	// Crosses the provided parents' attributes and returns an equal amount of children
+	// made up of randomized permutations. No resulting child will look like one of the parents.
+	public NNRobot[] crossover(NNRobot father, NNRobot mother) {
+		// Get the parents weights from the neural networks
+		double[][] father_weights_hidden = father.get_NN().w_hx;
+		double[][] mother_weights_hidden = mother.get_NN().w_hx;
+		double[][] father_weights_output = father.get_NN().w_yh;
+		double[][] mother_weights_output = mother.get_NN().w_yh;
+
+		// Check for compatibility of parents
+		if (father_weights_hidden.length != mother_weights_hidden.length) {
+			return null;
+		}
+
+		if (father_weights_output.length != mother_weights_output.length) {
+			return null;
+		}
+
+		NNRobot son = new NNRobot(father);
+		NNRobot daughter = new NNRobot(mother);
+
+		// Iterate over each set of hidden weights
+		for (int i = 0; i < father_weights_hidden.length; i++) {
+			// Get randomized split index for crossover
+			int split = ThreadLocalRandom.current().nextInt(0, father_weights_hidden[i].length);
+
+			// Swap the parent weights from the split index onwards
+			while (split < father_weights_hidden[i].length) {
+				son.get_NN().w_hx[i][split] = mother_weights_hidden[i][split];
+				daughter.get_NN().w_hx[i][split] = father_weights_hidden[i][split];
+			}
+		}
+
+		// Iterate over each set of output weights
+		for (int i = 0; i < father_weights_output.length; i++) {
+			// Get randomized split index for crossover
+			int split = ThreadLocalRandom.current().nextInt(0, father_weights_output[i].length);
+
+			// Swap the parent weights from the split index onwards
+			while (split < father_weights_output[i].length) {
+				son.get_NN().w_yh[i][split] = mother_weights_output[i][split];
+				daughter.get_NN().w_yh[i][split] = father_weights_output[i][split];
+			}
+		}
+
+		return new NNRobot[]{son, daughter};
+	}
+
 }//Rl_nn class
