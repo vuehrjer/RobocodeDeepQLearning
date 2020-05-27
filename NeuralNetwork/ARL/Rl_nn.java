@@ -61,8 +61,6 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
-	//When changing any of the 3 values below uncomment initializeWeightFiles() in the run method and start the robot once to initialize the weights .txt files correctly
-	//After that it should be commented out again.
 	static int inputNeurons = 6;
 	static int hiddenLayerNeurons = 25;
 	static int outputNeurons = 2;
@@ -83,10 +81,6 @@ public class Rl_nn extends AdvancedRobot {
 
 	//
 	public void run(){
-
-		//Comment the following function in and start he robot once to initialize the .txt files correctly.
-		//initializeWeightFiles();
-
 
 
 		//----------------------------------------Select parents test---------------------------------------
@@ -145,7 +139,7 @@ public class Rl_nn extends AdvancedRobot {
 				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
 
                 // Testing Mutation
-                NNRobot Robo = new NNRobot(1, NN_obj);
+                NNRobot Robo = new NNRobot(1, NN_obj, this);
                 NNRobot[] LonelyRobo = new NNRobot[] {Robo};
                 NNRobot[] RobosChild = mutateParents(LonelyRobo);
                 NN newNN = RobosChild[0].get_NN();
@@ -718,8 +712,6 @@ public class Rl_nn extends AdvancedRobot {
 		NNRobot[] robotArray = new NNRobot[numberRobots];
 
 		for (int i = 0; i < numberRobots; i++){
-			NNRobot newRobot = new NNRobot(i+1);
-			newRobot.set_fitness(0);
 
 			//Generate random weights_hidden array with Normal distribution
 			double[][] weights_hidden = new double[hiddenLayerNeurons][inputNeurons]; //Create
@@ -738,16 +730,14 @@ public class Rl_nn extends AdvancedRobot {
 				double randomValue = r.nextGaussian()*randomWeightStandardDeviation;
 				weights_output[0][j] = randomValue;
 			}
-
 			NN newNN = new NN(weights_hidden, weights_output);
-			newRobot.set_NN(newNN);
-
+			NNRobot newRobot = new NNRobot(i+1, newNN, this);
+			newRobot.set_fitness(0);
 			robotArray[i] = newRobot;
 		}
-
 		return robotArray;
 
-		}
+	}
 
 	public NNRobot[] selectParents(NNRobot[] robots){ //Returns the best 'topParentPercent' % of the input NNrobots sorted by their fitness values
 
@@ -807,6 +797,8 @@ public class Rl_nn extends AdvancedRobot {
 		}
 		return output_array;
 	}
+
+	
 	// Evolution stuff
 	// --------------------------------------------------------------
 
