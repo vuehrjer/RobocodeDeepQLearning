@@ -18,7 +18,7 @@ public class Rl_nn extends AdvancedRobot {
     final double gamma = 0.9;
     double distance=0;
     double mutationChance = 0.1;
-    int mutationNumber = 60;
+    int mutationNumber = 2;
     //declaring actions
     int[] action=new int[4];
     int[] total_actions=new int[4];
@@ -57,15 +57,15 @@ public class Rl_nn extends AdvancedRobot {
 	private double getBearing;
 	private double getTime;
 	private double normalizeBearing;
-	int populationSize = 0;
+	int populationSize = 6;
 
 	//nn
 	static int iter=0;
 	double dummy=0;
 
 	static int inputNeurons = 6;
-	static int hiddenLayerNeurons = 25;
-	static int outputNeurons = 2;
+	static int hiddenLayerNeurons = 19;
+	static int outputNeurons = 1;
 
 	double[] inputValues = new double[inputNeurons];
 	double[] inputValues_next = new double[inputNeurons];
@@ -121,10 +121,22 @@ public class Rl_nn extends AdvancedRobot {
 
 				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
 
+				//NN NN_test = new NN(w_hx, w_yh);
+
                 // Testing Mutation
                 NNRobot Robo = new NNRobot(1, NN_obj, this);
-                NNRobot[] LonelyRobo = new NNRobot[] {Robo};
-                mutateParents(LonelyRobo);
+                Robo.loadRobotWeights();
+                NNRobot Robo1 = new NNRobot(2, NN_obj, this);
+
+                NNRobot[] LonelyRobo = new NNRobot[] {Robo, Robo1};
+                NNRobot[] Children = crossover(Robo, Robo1);
+
+                makeEvolution(LonelyRobo);
+                for(int i = 0; i < Children.length; i++)
+                {
+                    Children[i].saveWeights(Children[i].get_NN().w_hx, "crossover_child" + i + "_whx");
+                    Children[i].saveWeights(Children[i].get_NN().w_yh, "crossover_child" + i + "_wyh");
+                }
                 NN newNN = LonelyRobo[0].get_NN();
 
 				q_present_double = new double[1];
@@ -760,7 +772,9 @@ public class Rl_nn extends AdvancedRobot {
 	// made up of randomized permutations. No resulting child will look like one of the parents.
 	public NNRobot[] crossover(NNRobot father, NNRobot mother) {
 		// Get the parents weights from the neural networks
-		double[][] father_weights_hidden = father.get_NN().w_hx;
+
+
+		double[][] father_weights_hidden = mother.get_NN().w_hx;
 		double[][] mother_weights_hidden = mother.get_NN().w_hx;
 		double[][] father_weights_output = father.get_NN().w_yh;
 		double[][] mother_weights_output = mother.get_NN().w_yh;
@@ -786,6 +800,7 @@ public class Rl_nn extends AdvancedRobot {
 			while (split < father_weights_hidden[i].length) {
 				son.get_NN().w_hx[i][split] = mother_weights_hidden[i][split];
 				daughter.get_NN().w_hx[i][split] = father_weights_hidden[i][split];
+				split++;
 			}
 		}
 
@@ -798,6 +813,7 @@ public class Rl_nn extends AdvancedRobot {
 			while (split < father_weights_output[i].length) {
 				son.get_NN().w_yh[i][split] = mother_weights_output[i][split];
 				daughter.get_NN().w_yh[i][split] = father_weights_output[i][split];
+				split++;
 			}
 		}
 
@@ -805,19 +821,18 @@ public class Rl_nn extends AdvancedRobot {
 	}
 
 
-    public void mutateParents(NNRobot[] Parents)
+    public NNRobot mutateParents(NNRobot Parent)
     {
-        int _parentSize = Parents.length;
-        NNRobot[] Children = Parents;
-        for(int i=0; i < _parentSize; i++)
-        {
-            NN ParentNN = Parents[i].get_NN();
+
+            NN ParentNN = Parent.get_NN();
+            int ParentID = Parent.get_ID();
+            NNRobot Child = new NNRobot(ParentID, ParentNN, this);
             for(int j = 0; j < ParentNN.w_hx.length; j++) {
                 for (int k = 0; k < ParentNN.w_hx[0].length; k++) {
                     Random rand = new Random();
                     float randomFactor = rand.nextFloat();
                     if (randomFactor < mutationChance) {
-                        w_hx[j][k] = rand.nextGaussian() * 2 + w_hx[j][k];
+                        Child.get_NN().w_hx[j][k] = rand.nextGaussian() * 2 + Child.get_NN().w_hx[j][k];
                     }
                 }
             }
@@ -826,11 +841,12 @@ public class Rl_nn extends AdvancedRobot {
                     Random rand = new Random();
                     float randomFactor = rand.nextFloat();
                     if (randomFactor < mutationChance) {
-                        w_yh[j][k] = rand.nextGaussian() * 2 + w_yh[j][k];
+                        Child.get_NN().w_yh[j][k] = rand.nextGaussian() * 2 + Child.get_NN().w_yh[j][k];
                     }
                 }
             }
-        }
+            return Child;
+
     }
 
 	public NNRobot[] makeEvolution(NNRobot[] robots)
@@ -844,7 +860,7 @@ public class Rl_nn extends AdvancedRobot {
         int i=2;
         while(i < nextGeneration.length)
         {
-            if(i < crossoverNumber -2)
+            if(i < crossoverNumber - 2)
             {
                 NNRobot[] children;
                 int random1 = ThreadLocalRandom.current().nextInt(0, parents.length);
@@ -853,6 +869,7 @@ public class Rl_nn extends AdvancedRobot {
                 NNRobot parent2 = parents[random2];
                 children = crossover(parent1, parent2);
                 nextGeneration[i] = children[0];
+
                 nextGeneration[i+1] = children[1];
                 i+=2;
             }
@@ -862,10 +879,11 @@ public class Rl_nn extends AdvancedRobot {
                 for(int j = 0; j < mutationNumber; j++)
                 {
                     int randomDummy = ThreadLocalRandom.current().nextInt(0, parents.length);
-                    dummyParents[j] = parents[randomDummy];
+                    dummyParents[j] = mutateParents(parents[randomDummy]);
                     nextGeneration[i] = dummyParents[j];
                     i++;
                 }
+
             }
         }
         return nextGeneration;
