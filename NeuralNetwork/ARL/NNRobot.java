@@ -108,7 +108,7 @@ public class NNRobot {
     }
 
 
-    public void saveWeights(double[][] weights, String fileName) {
+    private void saveWeights(double[][] weights, String fileName) {
 
         PrintStream weightsStream = null;
         try {
