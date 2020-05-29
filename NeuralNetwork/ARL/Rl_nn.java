@@ -3,10 +3,8 @@ package ARL; //change the package name as required
 import static robocode.util.Utils.getRandom;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 import java.awt.Color;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
+
 import robocode.*;
 import java.util.Random;
 import java.util.*;
@@ -364,6 +362,45 @@ public class Rl_nn extends AdvancedRobot {
 
 	}
 
+	public int selectNextRobotID(String robotAndRoundFile) {
+		int tempRobotRounds = 10; //TODO: replace with actual round numbers
+		int id = -1;
+		int roundNum;
+		File file = getDataFile(robotAndRoundFile);
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader(file));
+			id = Integer.parseInt(reader.readLine());
+			roundNum = Integer.parseInt(reader.readLine());
+			reader.close();
+
+			if (roundNum != 0 && roundNum % tempRobotRounds == 0) {
+				id++;
+				roundNum = 0;
+			}else{
+				++roundNum;
+			}
+
+			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), false);
+			writer.write(id + "\n");
+			writer.write(roundNum + "\n");
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return id;
+	}
+
+	public void resetConfig(String robotAndRoundFile){
+		File file = getDataFile(robotAndRoundFile);
+		try {
+			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), false);
+			writer.write("0\n0\n");
+			writer.close();
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 
 	public void onHitRobot(HitRobotEvent event){reward-=2;} //our robot hit by enemy robot
 	public void onBulletHit(BulletHitEvent event){reward+=3;} //one of our bullet hits enemy robot
@@ -403,6 +440,7 @@ public class Rl_nn extends AdvancedRobot {
 		qdistancetoenemy=distance2/100;
 		return qdistancetoenemy;
 	}
+
 
 	//absolute bearing
 	double absoluteBearing(float x1, float y1, float x2, float y2) {
