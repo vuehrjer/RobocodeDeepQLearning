@@ -30,8 +30,14 @@ public class NN {
 		this.inputSize_ = w_hx[0].length - 1;
 		this.hiddenLayerSize_ = w_hx.length;
 		this.outputSize_ = w_yh.length;
-		this.w_hx = w_hx;
-		this.w_yh = w_yh;
+        this.w_hx = w_hx.clone();
+        this.w_yh = w_yh.clone();
+        for (int i = 0; i < w_hx.length; i++) {
+            this.w_hx[i] = w_hx[i].clone();
+        }
+        for (int i = 0; i < w_yh.length; i++) {
+            this.w_yh[i] = w_yh[i].clone();
+        }
 		prev_delw_y=new double[outputSize_][hiddenLayerSize_+1];
 		prev_delw_h=new double[hiddenLayerSize_][inputSize_ + 1];
 		double beta_2=0;
