@@ -79,7 +79,7 @@ public class Rl_nn extends AdvancedRobot {
 	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 
-	int roundsPerRobot = 10;
+	int roundsPerRobot = 20;
 	boolean initialized = false;
 	boolean generateWeightFiles = false;
 	//
@@ -116,13 +116,13 @@ public class Rl_nn extends AdvancedRobot {
 						parents[i].loadRobot();
 					}
 
-					NNRobot[] children = makeEvolution(parents);
-					for (NNRobot c: children) {
-						c.saveRobot();
-					}
-					for (NNRobot p: parents){
-						p.deleteFitness();
-					}
+						NNRobot[] children = makeEvolution(parents);
+						for (int i = 0; i < children.length; i++) {
+							children[i].set_ID(i);
+							children[i].saveRobot();
+
+						}
+
 					resetConfig("config.txt");
 					currentRobotId = selectNextRobotID("config.txt");
 				}
@@ -167,9 +167,7 @@ public class Rl_nn extends AdvancedRobot {
 		}//while loop ends
 	}//run function ends
 
-	@Override
-	public void onRoundEnded(RoundEndedEvent event) {
-		super.onRoundEnded(event);
+	public void saveReward(){
 		currentRobot.set_fitness((float)reward);
 		currentRobot.saveRobotFitness();
 	}
@@ -284,6 +282,20 @@ public class Rl_nn extends AdvancedRobot {
 	public void onHitRobot(HitRobotEvent event){reward-=2;} //our robot hit by enemy robot
 	public void onBulletHit(BulletHitEvent event){reward+=3;} //one of our bullet hits enemy robot
 	public void onHitByBullet(HitByBulletEvent event){reward-=3;} //when our robot is hit by a bullet
+
+	@Override
+	public void onWin(WinEvent event) {
+		super.onWin(event);
+		reward += 10;
+		saveReward();
+	}
+
+	@Override
+	public void onDeath(DeathEvent event) {
+		super.onDeath(event);
+		reward -= 10;
+		saveReward();
+	}
 
 	private double quantize_angle(double absbearing2) {
 
@@ -686,14 +698,16 @@ public class Rl_nn extends AdvancedRobot {
         NNRobot[] parents;
         parents = selectParents(robots);
 
-        //print best parent
 		try {
-			saveFitness("generationInfo.txt", parents[1].get_fitness());
+			for (int i = 0; i < parents.length; i++) {
+				saveFitness("generationInfo.txt", parents[i].get_fitness());
+			}
+			saveFitness("generationInfo.txt", -101010101);
 		}     catch (IOException e) {
 			e.printStackTrace();
 		}
 
-		nextGeneration[0]= parents[0];
+        nextGeneration[0]= parents[0];
         nextGeneration[1] = parents[1];
         int crossoverNumber = populationSize - mutationNumber - 2;
         int i=2;

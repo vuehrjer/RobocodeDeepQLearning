@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 public class NNRobot {
-    private final int _ID;
+    private int _ID;
     private NN _NN;
     private float _fitness;
     private Rl_nn robotRef;
@@ -102,9 +102,9 @@ public class NNRobot {
         this._NN = _NN;
     }
 
-    public int get_ID() {
-        return _ID;
-    }
+    public int get_ID() {return _ID;}
+
+    public void set_ID(int _ID) { this._ID = _ID; }
 
     public float get_fitness() {
         return _fitness;
@@ -204,7 +204,11 @@ public class NNRobot {
     private void calculateFitness(double[] fitnesses) {
         double sum = 0;
         Arrays.sort(fitnesses);
-        _fitness =  (float)fitnesses[ (fitnesses.length/2)];
+        if (fitnesses.length == 0){
+            _fitness = 0;
+        } else {
+            _fitness =  (float)fitnesses[ (fitnesses.length/2)];
+        }
     }
 
     public void initializeWeightFiles(){
