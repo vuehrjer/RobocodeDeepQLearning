@@ -56,7 +56,7 @@ public class Rl_nn extends AdvancedRobot {
 	private double getTime;
 	private double normalizeBearing;
 	int populationSize = 24;
-
+	int win;
 	//nn
 	static int iter=0;
 	double dummy=0;
@@ -145,7 +145,7 @@ public class Rl_nn extends AdvancedRobot {
 			inputValues[5]=1;
 
 			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
-			System.out.println(w_hx[0][0]);
+
 
 			rl_action(random_action);
 
@@ -170,6 +170,18 @@ public class Rl_nn extends AdvancedRobot {
 	public void saveReward(){
 		currentRobot.set_fitness((float)reward);
 		currentRobot.saveRobotFitness();
+	}
+
+	public void saveWin(){
+		File file = getDataFile("winrate.txt");
+		try {
+			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), true);
+			writer.write(win + "\n");
+			writer.close();
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	//function definitions:
@@ -289,6 +301,8 @@ public class Rl_nn extends AdvancedRobot {
 		super.onWin(event);
 		reward += 10;
 		saveReward();
+		win = 1;
+		saveWin();
 	}
 
 	@Override
@@ -296,6 +310,8 @@ public class Rl_nn extends AdvancedRobot {
 		super.onDeath(event);
 		reward -= 10;
 		saveReward();
+		win = 0;
+		saveWin();
 	}
 
 	private double quantize_angle(double absbearing2) {
@@ -764,10 +780,12 @@ public class Rl_nn extends AdvancedRobot {
                 NNRobot[] dummyParents = new NNRobot[mutationNumber];
                 for(int j = 0; j < mutationNumber; j++)
                 {
-                    int randomDummy = ThreadLocalRandom.current().nextInt(0, parents.length);
-                    dummyParents[j] = mutateParents(parents[randomDummy]);
-                    nextGeneration[i] = dummyParents[j];
-                    i++;
+                	if(i < nextGeneration.length) {
+						int randomDummy = ThreadLocalRandom.current().nextInt(0, parents.length);
+						dummyParents[j] = mutateParents(parents[randomDummy]);
+						nextGeneration[i] = dummyParents[j];
+						i++;
+					}
                 }
             }
         }
