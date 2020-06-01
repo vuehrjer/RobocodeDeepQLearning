@@ -16,7 +16,7 @@ public class Rl_nn extends AdvancedRobot {
     final double gamma = 0.9;
     double distance=0;
     double mutationChance = 0.1;
-    int mutationNumber = 2;
+    int mutationNumber = 12;
     //declaring actions
     int[] action=new int[4];
     int[] total_actions=new int[4];
@@ -245,8 +245,8 @@ public class Rl_nn extends AdvancedRobot {
 
 				rl_action(Qmax_action);
 
-				qrl_x=quantize_position(getX());
-				qrl_y=quantize_position(getY());
+				qrl_x=quantize_positionX(getX());
+				qrl_y=quantize_positionY(getY());
 
 				turnGunRight(360);
 				System.out.println(qrl_x);
@@ -315,17 +315,15 @@ public class Rl_nn extends AdvancedRobot {
 		qdistancetoenemy=quantize_distance(distance); //distance to enemy state number 3
 
 		//fire
-		if(qdistancetoenemy<=2.50){fire(3);
-
-		}
-		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(3);}
-		if(qdistancetoenemy>5.00&&qdistancetoenemy<7.50){fire(1);}
+		/*if(qdistancetoenemy<=2.50){fire(3); }
+		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(2);}
+		if(qdistancetoenemy>5.00){fire(1);}*/
 		//fire
 
 		//your robot
 
-		qrl_x=quantize_position(getX()); //your x position -state number 1
-		qrl_y=quantize_position(getY()); //your y position -state number 2
+		qrl_x=quantize_positionX(getX()); //your x position -state number 1
+		qrl_y=quantize_positionY(getY()); //your y position -state number 2
 		//Calculating Enemy X & Y:
 		double angleToEnemy = e.getBearing();
 		// Calculate the angle to the scanned robot
@@ -333,14 +331,17 @@ public class Rl_nn extends AdvancedRobot {
 		// Calculate the coordinates of the robot
 		double enemyX = (getX() + Math.sin(angle) * e.getDistance());
 		double enemyY = (getY() + Math.cos(angle) * e.getDistance());
-		qenemy_x=quantize_position(enemyX);
-		qenemy_y=quantize_position(enemyY);
+		qenemy_x=quantize_positionX(enemyX);
+		qenemy_y=quantize_positionY(enemyY);
 		//distance to enemy
 		//absolute angle to enemy
 		absbearing=absoluteBearing((float) getX(),(float) getY(),(float) enemyX,(float) enemyY);
 		q_absbearing=quantize_angle(absbearing); //state number 4
-
-
+		double bearing = getHeadingRadians() + e.getBearingRadians();
+		setTurnGunRight(robocode.util.Utils.normalRelativeAngle(bearing - getGunHeadingRadians()));
+		if(qdistancetoenemy<=2.50){fire(3);}
+		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(2);}
+		else{fire(1);}
 		}
 
 	public double normalizeBearing(double angle) {
@@ -450,10 +451,10 @@ public class Rl_nn extends AdvancedRobot {
 		return bearing;
 	}
 
-	private double quantize_position(double rl_x2) {
+	private double quantize_positionX(double rl_x2) {
 			// TODO Auto-generated method stub
 
-		if((rl_x2 > 0) && (rl_x2<=100)){
+		/*if((rl_x2 > 0) && (rl_x2<=100)){
 			qrl_x=1;
 			}
 		else if((rl_x2 > 100) && (rl_x2<=200)){
@@ -476,10 +477,42 @@ public class Rl_nn extends AdvancedRobot {
 			}
 		else if((rl_x2 > 700) && (rl_x2<=800)){
 			qrl_x=8;
-			}
-		return rl_x2/100;
+			}*/
+		double width = getBattleFieldWidth();
+		return rl_x2/width;
 
 		}
+	private double quantize_positionY(double rl_y2) {
+		// TODO Auto-generated method stub
+
+		/*if((rl_x2 > 0) && (rl_x2<=100)){
+			qrl_x=1;
+			}
+		else if((rl_x2 > 100) && (rl_x2<=200)){
+			qrl_x=2;
+			}
+		else if((rl_x2 > 200) && (rl_x2<=300)){
+			qrl_x=3;
+			}
+		else if((rl_x2 > 300) && (rl_x2<=400)){
+			qrl_x=4;
+			}
+		else if((rl_x2 > 400) && (rl_x2<=500)){
+			qrl_x=5;
+			}
+		else if((rl_x2 > 500) && (rl_x2<=600)){
+			qrl_x=6;
+			}
+		else if((rl_x2 > 600) && (rl_x2<=700)){
+			qrl_x=7;
+			}
+		else if((rl_x2 > 700) && (rl_x2<=800)){
+			qrl_x=8;
+			}*/
+		double height = getBattleFieldHeight();
+		return rl_y2/height;
+
+	}
 
 	public void rl_action(int x){
 		switch(x){
