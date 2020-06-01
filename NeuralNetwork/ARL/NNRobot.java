@@ -5,9 +5,10 @@ import robocode.RobocodeFileWriter;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class NNRobot {
-    private final int _ID;
+    private int _ID;
     private NN _NN;
     private float _fitness;
     private Rl_nn robotRef;
@@ -49,7 +50,13 @@ public class NNRobot {
             e.printStackTrace();
         }
     }
-
+    public void deleteFitness(){
+        try{
+            resetFitness(_ID + "fitness.txt");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
     private void resetFitness(String fileName) throws IOException {
 
         File file = robotRef.getDataFile(fileName);
@@ -95,9 +102,9 @@ public class NNRobot {
         this._NN = _NN;
     }
 
-    public int get_ID() {
-        return _ID;
-    }
+    public int get_ID() {return _ID;}
+
+    public void set_ID(int _ID) { this._ID = _ID; }
 
     public float get_fitness() {
         return _fitness;
@@ -196,11 +203,12 @@ public class NNRobot {
 
     private void calculateFitness(double[] fitnesses) {
         double sum = 0;
-        for (double f: fitnesses) {
-            sum += f;
+        Arrays.sort(fitnesses);
+        if (fitnesses.length == 0){
+            _fitness = 0;
+        } else {
+            _fitness =  (float)fitnesses[ (fitnesses.length/2)];
         }
-        if (fitnesses.length != 0) _fitness = (float)(sum/fitnesses.length);
-        else _fitness = 0;
     }
 
     public void initializeWeightFiles(){

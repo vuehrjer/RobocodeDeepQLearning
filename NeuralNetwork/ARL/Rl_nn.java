@@ -16,7 +16,7 @@ public class Rl_nn extends AdvancedRobot {
     final double gamma = 0.9;
     double distance=0;
     double mutationChance = 0.1;
-    int mutationNumber = 2;
+    int mutationNumber = 12;
     //declaring actions
     int[] action=new int[4];
     int[] total_actions=new int[4];
@@ -55,8 +55,8 @@ public class Rl_nn extends AdvancedRobot {
 	private double getBearing;
 	private double getTime;
 	private double normalizeBearing;
-	int populationSize = 6;
-
+	int populationSize = 24;
+	int win;
 	//nn
 	static int iter=0;
 	double dummy=0;
@@ -79,227 +79,110 @@ public class Rl_nn extends AdvancedRobot {
 	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 
+	int roundsPerRobot = 20;
+	boolean initialized = false;
+	boolean generateWeightFiles = false;
 	//
+	int currentRobotId = 0;
+	NNRobot currentRobot;
 	public void run(){
 
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
 		setBodyColor(Color.PINK);
+
+		if(generateWeightFiles){
+			NNRobot[] initR = initializeRobots(populationSize);
+			for (NNRobot r: initR){
+				r.saveRobot();
+			}
+			resetConfig("config.txt");
+			return;
+		}
+
+		reward=0;
+
 		while(true){
-			if(explore){ //Explore event--------------------------------------------------//
 
-				if(iter==0){
+			NN NN_obj=new NN(w_hx, w_yh);
+			if (!initialized){
+				//load config
+				currentRobotId = selectNextRobotID("config.txt");
 
-					//load command
-					try {
-						loadHiddenWeights();
+				//if done with generation -> create new generation
+				if (currentRobotId >= populationSize){
+					NNRobot[] parents = new NNRobot[populationSize];
+					for (int i = 0; i < populationSize; i++) {
+						parents[i] = new NNRobot(i, NN_obj, this);
+						parents[i].loadRobot();
 					}
-					catch (IOException e) {
-						e.printStackTrace();
-					}
-					try {
-						loadOutputWeights();
-					}
-					catch (IOException e) {
-						e.printStackTrace();
-					}
-					//the loaded variable is in string converting it into double
-					for(int i=0;i<hiddenLayerNeurons;i++){
-						for(int j=0;j<inputNeurons;j++){
-							w_hx[i][j]= Double.valueOf(w_hxs[i][j]).doubleValue();
+
+						NNRobot[] children = makeEvolution(parents);
+						for (int i = 0; i < children.length; i++) {
+							children[i].set_ID(i);
+							children[i].saveRobot();
+
 						}
-					}
-					for(int i=0;i<outputNeurons;i++){
-						for(int j=0;j<hiddenLayerNeurons;j++){
-							w_yh[i][j]= Double.valueOf(w_yhs[i][j]).doubleValue();
-						}
-					}
 
-					iter=iter+1;
+					resetConfig("config.txt");
+					currentRobotId = selectNextRobotID("config.txt");
 				}
-
-				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
-
-				//NN NN_test = new NN(w_hx, w_yh);
-
-                // Testing Mutation
-                NNRobot Robo = new NNRobot(1, NN_obj, this);
-                Robo.loadRobotWeights();
-                NNRobot Robo1 = new NNRobot(2, NN_obj, this);
-
-                NNRobot[] LonelyRobo = new NNRobot[] {Robo, Robo1};
-                NNRobot[] Children = crossover(Robo, Robo1);
-
-                makeEvolution(LonelyRobo);
-                for(int i = 0; i < Children.length; i++)
-                {
-                    Children[i].saveWeights(Children[i].get_NN().w_hx, "crossover_child" + i + "_whx");
-                    Children[i].saveWeights(Children[i].get_NN().w_yh, "crossover_child" + i + "_wyh");
-                }
-                NN newNN = LonelyRobo[0].get_NN();
-
-				q_present_double = new double[1];
-				q_next_double = new double[1];
-				turnGunRight(360);
-				random_action=randInt(1,total_actions.length);
-				state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
-				inputValues[0]=qrl_x;
-				inputValues[1]=qrl_y;
-				inputValues[2]=qdistancetoenemy;
-				inputValues[3]=q_absbearing;
-				inputValues[4]=random_action;
-				inputValues[5]=1;
-
-				q_present_double=NN_obj.NNfeedforward(inputValues);
-				//NN.NNtrain(Xtrain, Ytrain, w_hx, w_yh,true);
-
-					System.out.println(w_hx[0][0]);
+				currentRobot = new NNRobot(currentRobotId, NN_obj,this);
+				currentRobot.loadRobotWeights();
+				initialized = true;
+			}
 
 
-				reward=0;
-				//performing next state and scanning
+			q_present_double = new double[1];
+			q_next_double = new double[1];
+			turnGunRight(360);
+			random_action=randInt(1,total_actions.length);
+			state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
+			inputValues[0]=qrl_x;
+			inputValues[1]=qrl_y;
+			inputValues[2]=qdistancetoenemy;
+			inputValues[3]=q_absbearing;
+			inputValues[4]=random_action;
+			inputValues[5]=1;
 
-				rl_action(random_action);
-
-				turnGunRight(360);
-
-				inputValues_next[0]=qrl_x;
-				inputValues_next[1]=qrl_y;
-				inputValues_next[2]=qdistancetoenemy;
-				inputValues_next[3]=q_absbearing;
-				inputValues_next[4]=random_action;
-				inputValues_next[5]=q_next_double[0];
-				q_next_double= NN_obj.NNfeedforward(inputValues_next);
-
-
-				//performing update
-				q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
-				targetValues[0]=q_present_double[0];
-				NN_obj.NNtrain(inputValues, targetValues);
-				saveHiddenWeights();
-				saveOutputWeights();
-
-			}//explore loop ends
-
-			//Greedy Moves//
-
-			if(greedy){
+			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
 
 
-				if(iter==0){
+			rl_action(random_action);
+
+			turnGunRight(360);
+
+			inputValues_next[0]=qrl_x;
+			inputValues_next[1]=qrl_y;
+			inputValues_next[2]=qdistancetoenemy;
+			inputValues_next[3]=q_absbearing;
+			inputValues_next[4]=random_action;
+			inputValues_next[5]=q_next_double[0];
+			q_next_double= currentRobot.get_NN().NNfeedforward(inputValues);
 
 
-					try {
-						loadHiddenWeights();
-					}
-					catch (IOException e) {
-						e.printStackTrace();
-					}
-					//load command
-					try {
-						loadOutputWeights();
-					}
-					catch (IOException e) {
-						e.printStackTrace();
-					}
-					//the loaded variable is in string converting it into double
-					for(int i=0;i<hiddenLayerNeurons;i++){
-						for(int j=0;j<inputNeurons;j++){
-							w_hx[i][j]= Double.valueOf(w_hxs[i][j]).doubleValue();
-						}
-					}
-					for(int i=0;i<outputNeurons;i++){
-						for(int j=0;j<hiddenLayerNeurons+1;j++){
-							w_yh[i][j]= Double.valueOf(w_yhs[i][j]).doubleValue();
-						}
-					}
+			//performing update
+			q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
+			targetValues[0]=q_present_double[0];
 
-					iter=iter+1;
-
-				}
-
-				NN NN_obj=new NN(w_hx, w_yh); //Neural Network Function
-
-
-				//predict current state:
-				turnGunRight(360);
-
-				// finding action that produces maximum Q value
-
-
-				for(int j=1;j<=total_actions.length;j++)
-				{
-					inputValues[0]=qrl_x;
-					inputValues[1]=qrl_y;
-					inputValues[2]=qdistancetoenemy;
-					inputValues[3]=q_absbearing;
-					inputValues[4]=j;
-					inputValues[5]=1;
-					q_possible[j-1]=NN_obj.NNfeedforward(inputValues)[0];
-					//System.out.println(Xtrain[0][0]);
-					//System.out.println(Xtrain[0][1]);
-					//System.out.println(Xtrain[0][2]);
-					//System.out.println(Xtrain[0][3]);
-				}
-
-				//converting table to double
-
-				for(int i=0;i<4;i++){
-					System.out.println(q_possible[i]+ "hi");
-				}
-
-				Qmax_action=getMax(q_possible)+1;
-				int jj=0;
-
-				inputValues[0]=qrl_x;
-				inputValues[1]=qrl_y;
-				inputValues[2]=qdistancetoenemy;
-				inputValues[3]=q_absbearing;
-				inputValues[4]=Qmax_action;
-				inputValues[5]=1;
-				System.out.println(qrl_x);
-				q_present_double=NN_obj.NNfeedforward(inputValues);
-				reward=0;
-				//performing next state and scanning
-
-				rl_action(Qmax_action);
-
-				qrl_x=quantize_position(getX());
-				qrl_y=quantize_position(getY());
-
-				turnGunRight(360);
-				System.out.println(qrl_x);
-				for(int j=1;j<=total_actions.length;j++)
-				{
-					inputValues_next[0]=qrl_x;
-					inputValues_next[1]=qrl_y;
-					inputValues_next[2]=qdistancetoenemy;
-					inputValues_next[3]=q_absbearing;
-					inputValues_next[4]=j;
-					inputValues_next[5]=1;
-					q_possible[j-1]=NN_obj.NNfeedforward(inputValues)[0];
-
-				}
-
-
-				Qmax_action=getMax(q_possible)+1;
-
-				inputValues_next[0]=qrl_x;
-				inputValues_next[1]=qrl_y;
-				inputValues_next[2]=qdistancetoenemy;
-				inputValues_next[3]=q_absbearing;
-				inputValues_next[4]=random_action;
-				inputValues_next[5]=Qmax_action;;
-				q_next_double=NN_obj.NNfeedforward(inputValues_next);
-
-				System.out.println("h");
-				//performing update
-				q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
-				targetValues=q_present_double;
-				NN_obj.NNtrain(inputValues, targetValues);
-			}//greedy loop ends
 		}//while loop ends
 	}//run function ends
 
+	public void saveReward(){
+		currentRobot.set_fitness((float)reward);
+		currentRobot.saveRobotFitness();
+	}
+
+	public void saveWin(){
+		File file = getDataFile("winrate.txt");
+		try {
+			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), true);
+			writer.write(win + "\n");
+			writer.close();
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 
 	//function definitions:
 	public void onScannedRobot(ScannedRobotEvent e)
@@ -327,17 +210,15 @@ public class Rl_nn extends AdvancedRobot {
 		qdistancetoenemy=quantize_distance(distance); //distance to enemy state number 3
 
 		//fire
-		if(qdistancetoenemy<=2.50){fire(3);
-
-		}
-		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(3);}
-		if(qdistancetoenemy>5.00&&qdistancetoenemy<7.50){fire(1);}
+		/*if(qdistancetoenemy<=2.50){fire(3); }
+		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(2);}
+		if(qdistancetoenemy>5.00){fire(1);}*/
 		//fire
 
 		//your robot
 
-		qrl_x=quantize_position(getX()); //your x position -state number 1
-		qrl_y=quantize_position(getY()); //your y position -state number 2
+		qrl_x=quantize_positionX(getX()); //your x position -state number 1
+		qrl_y=quantize_positionY(getY()); //your y position -state number 2
 		//Calculating Enemy X & Y:
 		double angleToEnemy = e.getBearing();
 		// Calculate the angle to the scanned robot
@@ -345,14 +226,17 @@ public class Rl_nn extends AdvancedRobot {
 		// Calculate the coordinates of the robot
 		double enemyX = (getX() + Math.sin(angle) * e.getDistance());
 		double enemyY = (getY() + Math.cos(angle) * e.getDistance());
-		qenemy_x=quantize_position(enemyX);
-		qenemy_y=quantize_position(enemyY);
+		qenemy_x=quantize_positionX(enemyX);
+		qenemy_y=quantize_positionY(enemyY);
 		//distance to enemy
 		//absolute angle to enemy
 		absbearing=absoluteBearing((float) getX(),(float) getY(),(float) enemyX,(float) enemyY);
 		q_absbearing=quantize_angle(absbearing); //state number 4
-
-
+		double bearing = getHeadingRadians() + e.getBearingRadians();
+		setTurnGunRight(robocode.util.Utils.normalRelativeAngle(bearing - getGunHeadingRadians()));
+		if(qdistancetoenemy<=2.50){fire(3);}
+		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(2);}
+		else{fire(1);}
 		}
 
 	public double normalizeBearing(double angle) {
@@ -362,8 +246,14 @@ public class Rl_nn extends AdvancedRobot {
 
 	}
 
+	public void saveFitness(String fileName, float fitness) throws IOException{
+		File file = getDataFile(fileName);
+		RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),true);
+		writer.write(fitness + "\n");
+		writer.close();
+	}
+
 	public int selectNextRobotID(String robotAndRoundFile) {
-		int tempRobotRounds = 10; //TODO: replace with actual round numbers
 		int id = -1;
 		int roundNum;
 		File file = getDataFile(robotAndRoundFile);
@@ -373,7 +263,7 @@ public class Rl_nn extends AdvancedRobot {
 			roundNum = Integer.parseInt(reader.readLine());
 			reader.close();
 
-			if (roundNum != 0 && roundNum % tempRobotRounds == 0) {
+			if (roundNum != 0 && roundNum % roundsPerRobot == 0) {
 				id++;
 				roundNum = 0;
 			}else{
@@ -405,6 +295,24 @@ public class Rl_nn extends AdvancedRobot {
 	public void onHitRobot(HitRobotEvent event){reward-=2;} //our robot hit by enemy robot
 	public void onBulletHit(BulletHitEvent event){reward+=3;} //one of our bullet hits enemy robot
 	public void onHitByBullet(HitByBulletEvent event){reward-=3;} //when our robot is hit by a bullet
+
+	@Override
+	public void onWin(WinEvent event) {
+		super.onWin(event);
+		reward += 10;
+		saveReward();
+		win = 1;
+		saveWin();
+	}
+
+	@Override
+	public void onDeath(DeathEvent event) {
+		super.onDeath(event);
+		reward -= 10;
+		saveReward();
+		win = 0;
+		saveWin();
+	}
 
 	private double quantize_angle(double absbearing2) {
 
@@ -463,10 +371,10 @@ public class Rl_nn extends AdvancedRobot {
 		return bearing;
 	}
 
-	private double quantize_position(double rl_x2) {
+	private double quantize_positionX(double rl_x2) {
 			// TODO Auto-generated method stub
 
-		if((rl_x2 > 0) && (rl_x2<=100)){
+		/*if((rl_x2 > 0) && (rl_x2<=100)){
 			qrl_x=1;
 			}
 		else if((rl_x2 > 100) && (rl_x2<=200)){
@@ -489,10 +397,42 @@ public class Rl_nn extends AdvancedRobot {
 			}
 		else if((rl_x2 > 700) && (rl_x2<=800)){
 			qrl_x=8;
-			}
-		return rl_x2/100;
+			}*/
+		double width = getBattleFieldWidth();
+		return rl_x2/width;
 
 		}
+	private double quantize_positionY(double rl_y2) {
+		// TODO Auto-generated method stub
+
+		/*if((rl_x2 > 0) && (rl_x2<=100)){
+			qrl_x=1;
+			}
+		else if((rl_x2 > 100) && (rl_x2<=200)){
+			qrl_x=2;
+			}
+		else if((rl_x2 > 200) && (rl_x2<=300)){
+			qrl_x=3;
+			}
+		else if((rl_x2 > 300) && (rl_x2<=400)){
+			qrl_x=4;
+			}
+		else if((rl_x2 > 400) && (rl_x2<=500)){
+			qrl_x=5;
+			}
+		else if((rl_x2 > 500) && (rl_x2<=600)){
+			qrl_x=6;
+			}
+		else if((rl_x2 > 600) && (rl_x2<=700)){
+			qrl_x=7;
+			}
+		else if((rl_x2 > 700) && (rl_x2<=800)){
+			qrl_x=8;
+			}*/
+		double height = getBattleFieldHeight();
+		return rl_y2/height;
+
+	}
 
 	public void rl_action(int x){
 		switch(x){
@@ -530,7 +470,7 @@ public class Rl_nn extends AdvancedRobot {
 
 
 		}
-				}//rl_action()
+	}//rl_action()
 
 	public static int randInt(int min, int max) {
 
@@ -543,92 +483,6 @@ public class Rl_nn extends AdvancedRobot {
 
 		return randomNum;
 	}
-
-	public void saveHiddenWeights() {
-
-		PrintStream hiddenWeightsStream = null;
-		try {
-			hiddenWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_hidden.txt")));
-			for (int i=0;i<w_hx.length;i++) {
-
-				String outputLine = String.valueOf(w_hx[i][0]);
-				for (int j = 1; j < w_hx[i].length; j++) {
-					outputLine += "    " + String.valueOf(w_hx[i][j]);
-				}
-				hiddenWeightsStream.println(outputLine);
-
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			hiddenWeightsStream.flush();
-			hiddenWeightsStream.close();
-		}
-
-	}
-
-	public void saveOutputWeights() {
-
-		PrintStream outputWeightsStream = null;
-		try {
-			outputWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_output.txt")));
-			for (int i=0;i<w_yh.length;i++) {
-
-				String outputLine = String.valueOf(w_yh[i][0]);
-				for (int j = 1; j < w_yh[i].length; j++) {
-					outputLine += "    " + String.valueOf(w_yh[i][j]);
-				}
-
-				outputWeightsStream.println(outputLine);
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			outputWeightsStream.flush();
-			outputWeightsStream.close();
-		}
-
-	}
-
-	public void loadHiddenWeights() throws IOException {
-		BufferedReader reader = new BufferedReader(new FileReader(getDataFile("weights_hidden.txt")));
-		String line = reader.readLine();
-		try {
-			int hidN_i=0;
-			while (line != null) {
-				String splitLine[] = line.split("    ");
-				for (int inN_i = 0; inN_i < w_hxs[hidN_i].length; inN_i++) {
-					w_hxs[hidN_i][inN_i]=splitLine[inN_i];
-				}
-				hidN_i++;
-				line= reader.readLine();
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			reader.close();
-		}
-	}//load
-
-	public void loadOutputWeights() throws IOException {
-		BufferedReader reader = new BufferedReader(new FileReader(getDataFile("weights_output.txt")));
-		String line = reader.readLine();
-		try {
-			int outN_i=0;
-			while (line != null) {
-				String splitLine[] = line.split("    ");
-				for (int hidN_i = 0; hidN_i < w_yhs[outN_i].length; hidN_i++) {
-					w_yhs[outN_i][hidN_i]=splitLine[hidN_i];
-				}
-				outN_i++;
-				line= reader.readLine();
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			reader.close();
-		}
-	}//load
 
 	public static int getMax(double[] array){
 
@@ -669,9 +523,8 @@ public class Rl_nn extends AdvancedRobot {
 			{
 				this.setTurnRight(90);
 			}
-
-
 		}
+
 		else if(yPos>height-80){ //to close to the top
 
 			if((this.getHeading()<90)&&(this.getHeading()>0)){this.setTurnRight(90);}
@@ -735,7 +588,7 @@ public class Rl_nn extends AdvancedRobot {
 				weights_output[0][j] = randomValue;
 			}
 			NN newNN = new NN(weights_hidden, weights_output);
-			NNRobot newRobot = new NNRobot(i+1, newNN, this);
+			NNRobot newRobot = new NNRobot(i, newNN, this);
 			newRobot.set_fitness(0);
 			robotArray[i] = newRobot;
 		}
@@ -758,6 +611,7 @@ public class Rl_nn extends AdvancedRobot {
 		for (int i = 0; i < best_parents.length; i++){ //Fill best_parents array with the best robots
 			best_parents[i] = robots[i];
 		}
+
 
 		//Get robot with biggest diversity to best robot
 		int best_diversity_index = 1;
@@ -892,7 +746,17 @@ public class Rl_nn extends AdvancedRobot {
         NNRobot[] nextGeneration = new NNRobot[populationSize];
         NNRobot[] parents;
         parents = selectParents(robots);
-		nextGeneration[0]= parents[0];
+
+		try {
+			for (int i = 0; i < parents.length; i++) {
+				saveFitness("generationInfo.txt", parents[i].get_fitness());
+			}
+			saveFitness("generationInfo.txt", -101010101);
+		}     catch (IOException e) {
+			e.printStackTrace();
+		}
+
+        nextGeneration[0]= parents[0];
         nextGeneration[1] = parents[1];
         int crossoverNumber = populationSize - mutationNumber - 2;
         int i=2;
@@ -916,12 +780,13 @@ public class Rl_nn extends AdvancedRobot {
                 NNRobot[] dummyParents = new NNRobot[mutationNumber];
                 for(int j = 0; j < mutationNumber; j++)
                 {
-                    int randomDummy = ThreadLocalRandom.current().nextInt(0, parents.length);
-                    dummyParents[j] = mutateParents(parents[randomDummy]);
-                    nextGeneration[i] = dummyParents[j];
-                    i++;
+                	if(i < nextGeneration.length) {
+						int randomDummy = ThreadLocalRandom.current().nextInt(0, parents.length);
+						dummyParents[j] = mutateParents(parents[randomDummy]);
+						nextGeneration[i] = dummyParents[j];
+						i++;
+					}
                 }
-
             }
         }
         return nextGeneration;
