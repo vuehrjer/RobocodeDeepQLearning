@@ -49,7 +49,13 @@ public class NNRobot {
             e.printStackTrace();
         }
     }
-
+    public void deleteFitness(){
+        try{
+            resetFitness(_ID + "fitness.txt");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
     private void resetFitness(String fileName) throws IOException {
 
         File file = robotRef.getDataFile(fileName);
