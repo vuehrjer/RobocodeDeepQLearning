@@ -81,7 +81,7 @@ public class Rl_nn extends AdvancedRobot {
 
 	int roundsPerRobot = 10;
 	boolean initialized = false;
-	boolean initializeRobots = false;
+	boolean generateWeightFiles = false;
 	//
 	int currentRobotId = 0;
 	NNRobot currentRobot;
@@ -89,11 +89,13 @@ public class Rl_nn extends AdvancedRobot {
 
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
 		setBodyColor(Color.PINK);
-		if(initializeRobots){
+
+		if(generateWeightFiles){
 			NNRobot[] initR = initializeRobots(populationSize);
 			for (NNRobot r: initR){
 				r.saveRobot();
 			}
+			resetConfig("config.txt");
 			return;
 		}
 
@@ -145,8 +147,6 @@ public class Rl_nn extends AdvancedRobot {
 			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
 			System.out.println(w_hx[0][0]);
 
-
-
 			rl_action(random_action);
 
 			turnGunRight(360);
@@ -164,121 +164,6 @@ public class Rl_nn extends AdvancedRobot {
 			q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
 			targetValues[0]=q_present_double[0];
 
-			//Greedy Moves//
-
-			if(greedy){
-
-
-				if(iter==0){
-
-
-					try {
-						loadHiddenWeights();
-					}
-					catch (IOException e) {
-						e.printStackTrace();
-					}
-					//load command
-					try {
-						loadOutputWeights();
-					}
-					catch (IOException e) {
-						e.printStackTrace();
-					}
-					//the loaded variable is in string converting it into double
-					for(int i=0;i<hiddenLayerNeurons;i++){
-						for(int j=0;j<inputNeurons;j++){
-							w_hx[i][j]= Double.valueOf(w_hxs[i][j]).doubleValue();
-						}
-					}
-					for(int i=0;i<outputNeurons;i++){
-						for(int j=0;j<hiddenLayerNeurons+1;j++){
-							w_yh[i][j]= Double.valueOf(w_yhs[i][j]).doubleValue();
-						}
-					}
-
-					iter=iter+1;
-
-				}
-
-
-				//predict current state:
-				turnGunRight(360);
-
-				// finding action that produces maximum Q value
-
-
-				for(int j=1;j<=total_actions.length;j++)
-				{
-					inputValues[0]=qrl_x;
-					inputValues[1]=qrl_y;
-					inputValues[2]=qdistancetoenemy;
-					inputValues[3]=q_absbearing;
-					inputValues[4]=j;
-					inputValues[5]=1;
-					q_possible[j-1]=NN_obj.NNfeedforward(inputValues)[0];
-					//System.out.println(Xtrain[0][0]);
-					//System.out.println(Xtrain[0][1]);
-					//System.out.println(Xtrain[0][2]);
-					//System.out.println(Xtrain[0][3]);
-				}
-
-				//converting table to double
-
-				for(int i=0;i<4;i++){
-					System.out.println(q_possible[i]+ "hi");
-				}
-
-				Qmax_action=getMax(q_possible)+1;
-				int jj=0;
-
-				inputValues[0]=qrl_x;
-				inputValues[1]=qrl_y;
-				inputValues[2]=qdistancetoenemy;
-				inputValues[3]=q_absbearing;
-				inputValues[4]=Qmax_action;
-				inputValues[5]=1;
-				System.out.println(qrl_x);
-				q_present_double=NN_obj.NNfeedforward(inputValues);
-				reward=0;
-				//performing next state and scanning
-
-				rl_action(Qmax_action);
-
-				qrl_x=quantize_position(getX());
-				qrl_y=quantize_position(getY());
-
-				turnGunRight(360);
-				System.out.println(qrl_x);
-				for(int j=1;j<=total_actions.length;j++)
-				{
-					inputValues_next[0]=qrl_x;
-					inputValues_next[1]=qrl_y;
-					inputValues_next[2]=qdistancetoenemy;
-					inputValues_next[3]=q_absbearing;
-					inputValues_next[4]=j;
-					inputValues_next[5]=1;
-					q_possible[j-1]=NN_obj.NNfeedforward(inputValues)[0];
-
-				}
-
-
-				Qmax_action=getMax(q_possible)+1;
-
-				inputValues_next[0]=qrl_x;
-				inputValues_next[1]=qrl_y;
-				inputValues_next[2]=qdistancetoenemy;
-				inputValues_next[3]=q_absbearing;
-				inputValues_next[4]=random_action;
-				inputValues_next[5]=Qmax_action;;
-				q_next_double=NN_obj.NNfeedforward(inputValues_next);
-
-				System.out.println("h");
-				//performing update
-				q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
-				targetValues=q_present_double;
-				NN_obj.NNtrain(inputValues, targetValues);
-			}//greedy loop ends
 		}//while loop ends
 	}//run function ends
 
@@ -348,6 +233,13 @@ public class Rl_nn extends AdvancedRobot {
 		while (angle < -180) angle += 360;
 		return angle;
 
+	}
+
+	public void saveFitness(String fileName, float fitness) throws IOException{
+		File file = getDataFile(fileName);
+		RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),true);
+		writer.write(fitness + "\n");
+		writer.close();
 	}
 
 	public int selectNextRobotID(String robotAndRoundFile) {
@@ -517,7 +409,7 @@ public class Rl_nn extends AdvancedRobot {
 
 
 		}
-				}//rl_action()
+	}//rl_action()
 
 	public static int randInt(int min, int max) {
 
@@ -530,92 +422,6 @@ public class Rl_nn extends AdvancedRobot {
 
 		return randomNum;
 	}
-
-	public void saveHiddenWeights() {
-
-		PrintStream hiddenWeightsStream = null;
-		try {
-			hiddenWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_hidden.txt")));
-			for (int i=0;i<w_hx.length;i++) {
-
-				String outputLine = String.valueOf(w_hx[i][0]);
-				for (int j = 1; j < w_hx[i].length; j++) {
-					outputLine += "    " + String.valueOf(w_hx[i][j]);
-				}
-				hiddenWeightsStream.println(outputLine);
-
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			hiddenWeightsStream.flush();
-			hiddenWeightsStream.close();
-		}
-
-	}
-
-	public void saveOutputWeights() {
-
-		PrintStream outputWeightsStream = null;
-		try {
-			outputWeightsStream = new PrintStream(new RobocodeFileOutputStream(getDataFile("weights_output.txt")));
-			for (int i=0;i<w_yh.length;i++) {
-
-				String outputLine = String.valueOf(w_yh[i][0]);
-				for (int j = 1; j < w_yh[i].length; j++) {
-					outputLine += "    " + String.valueOf(w_yh[i][j]);
-				}
-
-				outputWeightsStream.println(outputLine);
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			outputWeightsStream.flush();
-			outputWeightsStream.close();
-		}
-
-	}
-
-	public void loadHiddenWeights() throws IOException {
-		BufferedReader reader = new BufferedReader(new FileReader(getDataFile("weights_hidden.txt")));
-		String line = reader.readLine();
-		try {
-			int hidN_i=0;
-			while (line != null) {
-				String splitLine[] = line.split("    ");
-				for (int inN_i = 0; inN_i < w_hxs[hidN_i].length; inN_i++) {
-					w_hxs[hidN_i][inN_i]=splitLine[inN_i];
-				}
-				hidN_i++;
-				line= reader.readLine();
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			reader.close();
-		}
-	}//load
-
-	public void loadOutputWeights() throws IOException {
-		BufferedReader reader = new BufferedReader(new FileReader(getDataFile("weights_output.txt")));
-		String line = reader.readLine();
-		try {
-			int outN_i=0;
-			while (line != null) {
-				String splitLine[] = line.split("    ");
-				for (int hidN_i = 0; hidN_i < w_yhs[outN_i].length; hidN_i++) {
-					w_yhs[outN_i][hidN_i]=splitLine[hidN_i];
-				}
-				outN_i++;
-				line= reader.readLine();
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}finally {
-			reader.close();
-		}
-	}//load
 
 	public static int getMax(double[] array){
 
@@ -744,6 +550,7 @@ public class Rl_nn extends AdvancedRobot {
 		for (int i = 0; i < best_parents.length; i++){ //Fill best_parents array with the best robots
 			best_parents[i] = robots[i];
 		}
+
 
 		//Get robot with biggest diversity to best robot
 		int best_diversity_index = 1;
@@ -878,6 +685,14 @@ public class Rl_nn extends AdvancedRobot {
         NNRobot[] nextGeneration = new NNRobot[populationSize];
         NNRobot[] parents;
         parents = selectParents(robots);
+
+        //print best parent
+		try {
+			saveFitness("generationInfo.txt", parents[1].get_fitness());
+		}     catch (IOException e) {
+			e.printStackTrace();
+		}
+
 		nextGeneration[0]= parents[0];
         nextGeneration[1] = parents[1];
         int crossoverNumber = populationSize - mutationNumber - 2;
@@ -907,7 +722,6 @@ public class Rl_nn extends AdvancedRobot {
                     nextGeneration[i] = dummyParents[j];
                     i++;
                 }
-
             }
         }
         return nextGeneration;

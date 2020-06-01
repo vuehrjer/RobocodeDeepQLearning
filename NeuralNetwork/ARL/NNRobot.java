@@ -5,6 +5,7 @@ import robocode.RobocodeFileWriter;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class NNRobot {
     private final int _ID;
@@ -202,11 +203,8 @@ public class NNRobot {
 
     private void calculateFitness(double[] fitnesses) {
         double sum = 0;
-        for (double f: fitnesses) {
-            sum += f;
-        }
-        if (fitnesses.length != 0) _fitness = (float)(sum/fitnesses.length);
-        else _fitness = 0;
+        Arrays.sort(fitnesses);
+        _fitness =  (float)fitnesses[ (fitnesses.length/2)];
     }
 
     public void initializeWeightFiles(){
