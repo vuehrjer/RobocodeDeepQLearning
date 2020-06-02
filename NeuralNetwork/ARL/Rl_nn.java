@@ -170,9 +170,11 @@ public class Rl_nn extends AdvancedRobot {
 	public void saveReward(){
 		currentRobot.set_fitness((float)reward);
 		currentRobot.saveRobotFitness();
+		currentRobot.set_win(win);
+		currentRobot.saveRobotWins();
 	}
 
-	public void saveWin(){
+	/*public void saveWin(){
 		File file = getDataFile("winrate.txt");
 		try {
 			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), true);
@@ -182,7 +184,7 @@ public class Rl_nn extends AdvancedRobot {
 		catch (IOException e) {
 			e.printStackTrace();
 		}
-	}
+	}*/
 
 	//function definitions:
 	public void onScannedRobot(ScannedRobotEvent e)
@@ -263,7 +265,8 @@ public class Rl_nn extends AdvancedRobot {
 			roundNum = Integer.parseInt(reader.readLine());
 			reader.close();
 
-			if (roundNum != 0 && roundNum % roundsPerRobot == 0) {
+
+			if (roundNum != 0 && roundNum % (roundsPerRobot - 1) == 0) {
 				id++;
 				roundNum = 0;
 			}else{
@@ -300,18 +303,20 @@ public class Rl_nn extends AdvancedRobot {
 	public void onWin(WinEvent event) {
 		super.onWin(event);
 		reward += 10;
-		saveReward();
+
 		win = 1;
-		saveWin();
+		saveReward();
+
 	}
 
 	@Override
 	public void onDeath(DeathEvent event) {
 		super.onDeath(event);
 		reward -= 10;
-		saveReward();
+
 		win = 0;
-		saveWin();
+		saveReward();
+
 	}
 
 	private double quantize_angle(double absbearing2) {
