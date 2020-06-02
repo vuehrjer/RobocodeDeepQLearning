@@ -79,11 +79,12 @@ public class Rl_nn extends AdvancedRobot {
 	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 
-	int roundsPerRobot = 2;
+	int roundsPerRobot = 20;
 	boolean initialized = false;
 	boolean generateWeightFiles = false;
 	//
 	int currentRobotId = 0;
+
 	NNRobot currentRobot;
 	public void run(){
 
