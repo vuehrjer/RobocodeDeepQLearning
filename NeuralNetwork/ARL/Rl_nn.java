@@ -79,7 +79,7 @@ public class Rl_nn extends AdvancedRobot {
 	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 
-	int roundsPerRobot = 20;
+	int roundsPerRobot = 2;
 	boolean initialized = false;
 	boolean generateWeightFiles = false;
 	//
@@ -266,9 +266,9 @@ public class Rl_nn extends AdvancedRobot {
 			reader.close();
 
 
-			if (roundNum != 0 && roundNum % (roundsPerRobot - 1) == 0) {
+			if (roundNum != 0 && roundNum % roundsPerRobot == 0) {
 				id++;
-				roundNum = 0;
+				roundNum = 1;
 			}else{
 				++roundNum;
 			}
