@@ -41,6 +41,7 @@ public class NNRobot {
 
     }
 
+
     public void saveRobotWins(){
         try {
             saveWins(_ID + "wins.txt");
@@ -108,7 +109,7 @@ public class NNRobot {
     }
     public void loadWins() {
         try {
-            int[] winrate = loadWinrates(_ID + "wins.txt");
+            winrate = loadWinrates(_ID + "wins.txt");
         }
         catch(IOException e){
             e.printStackTrace();
@@ -136,6 +137,7 @@ public class NNRobot {
         }
         return returnArray;
     }
+
     public void loadAndCalculateFitness(){
 
         try{
@@ -170,7 +172,9 @@ public class NNRobot {
     public void set_win(int win){
         this.win = win;
     }
-
+    public int[] get_winrate(){
+        return this.winrate;
+    }
     private void saveWeights(double[][] weights, String fileName) {
 
         PrintStream weightsStream = null;

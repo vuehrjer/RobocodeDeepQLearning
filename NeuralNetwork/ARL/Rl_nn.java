@@ -254,6 +254,14 @@ public class Rl_nn extends AdvancedRobot {
 		writer.write(fitness + "\n");
 		writer.close();
 	}
+	public void saveWinrate(String fileName, int[] winrate) throws IOException{
+		File file = getDataFile(fileName);
+		RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),true);
+		for(int i = 0; i < winrate.length; i++) {
+			writer.write(winrate[i] + "\n");
+		}
+		writer.close();
+	}
 
 	public int selectNextRobotID(String robotAndRoundFile) {
 		int id = -1;
@@ -757,6 +765,12 @@ public class Rl_nn extends AdvancedRobot {
 				saveFitness("generationInfo.txt", parents[i].get_fitness());
 			}
 			saveFitness("generationInfo.txt", -101010101);
+		}     catch (IOException e) {
+			e.printStackTrace();
+		}
+		try {
+			saveWinrate("winrate.txt", parents[1].get_winrate());
+			//saveFitness("wins.txt", -101010101);
 		}     catch (IOException e) {
 			e.printStackTrace();
 		}
