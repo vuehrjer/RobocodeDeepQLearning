@@ -3,9 +3,12 @@ package ARL; //change the package name as required
 import static robocode.util.Utils.getRandom;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 import java.awt.Color;
+import java.awt.geom.Point2D;
 import java.io.*;
 
 import robocode.*;
+import robocode.util.Utils;
+
 import java.util.Random;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -61,9 +64,9 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
-	static int inputNeurons = 5;
-	static int hiddenLayerNeurons = 4;
-	static int outputNeurons = 4;
+	static int inputNeurons = 6;
+	static int hiddenLayerNeurons = 10;
+	static int outputNeurons = 5;
 
 	double[] inputValues = new double[inputNeurons];
 	double[] inputValues_next = new double[inputNeurons];
@@ -85,6 +88,15 @@ public class Rl_nn extends AdvancedRobot {
 	int currentRobotId = 0;
 
 	NNRobot currentRobot;
+	private double enemyHeading = 0;
+	private double velocity = 0;
+	private long fireTime;
+	private double deltaX = 0;
+	private double deltaY = 0;
+	private double deltaEnergy = 0;
+	private double X = 0;
+	private double Y = 0;
+
 	public void run(){
 
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
@@ -135,12 +147,17 @@ public class Rl_nn extends AdvancedRobot {
 			//setTurnGunRight(360);
 			//random_action=randInt(1,total_actions.length);
 			//state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
+
+			qrl_x=quantize_positionX(getX()); //your x position -state number 1
+			qrl_y=quantize_positionY(getY()); //your y position -state number 2
+
 			inputValues[0]=qrl_x;
 			inputValues[1]=qrl_y;
-			inputValues[2]=qdistancetoenemy;
-			inputValues[3]=q_absbearing;
+			inputValues[2]=deltaX;
+			inputValues[2]=deltaY;
+			inputValues[4]=deltaEnergy;
 			//inputValues[4]=random_action;
-			inputValues[4]=1;
+			inputValues[5]=1;
 
 			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
 
@@ -185,86 +202,41 @@ public class Rl_nn extends AdvancedRobot {
 	}*/
 
 	//function definitions:
-	public void onScannedRobot(ScannedRobotEvent e)
-		{
-		double absBearing=e.getBearingRadians()+getHeadingRadians();
+	
 
-		this.absBearing=absBearing;
-		double getVelocity=e.getVelocity();
-		double getHeadingRadians=e.getHeadingRadians();
-		this.getHeadingRadians=getHeadingRadians;
-		this.getVelocity=getVelocity;
+	public void doGun()
+	{
+		double power = Math.min(400/distance, 3);
+		if (fireTime == getTime() && getGunTurnRemaining() == 0) {setFire(power);}
+		double bulletSpeed = 20 -power*3;
+		long time = (long)(distance/bulletSpeed);
+		double futureX = getX()-deltaX+Math.sin(enemyHeading)*velocity*time;
+		double futureY = getY()-deltaY+Math.cos(enemyHeading)*velocity*time;
+		double absDeg = absoluteBearing(getX(), getY(), futureX, futureY);
+		setTurnGunRight(normalizeBearing(absDeg-getGunHeading()));fireTime = getTime()+1;
+	}
 
-		double getBearing=e.getBearing();
-		this.getBearing=getBearing;
-		double getTime=getTime();
-		this.getTime=getTime;
-		gunTurnAmt = normalRelativeAngleDegrees(e.getBearing() + (getHeading() - getRadarHeading()));
-		this.gunTurnAmt=gunTurnAmt;
-
-		double normalizeBearing=normalizeBearing(getBearing + 90 - (15 * 1));
-		this.normalizeBearing=normalizeBearing;
-		robot_energy=getEnergy();
-		enemy_energy=e.getEnergy();
-		distance = e.getDistance(); //distance to the enemy
-		qdistancetoenemy=quantize_distance(distance); //distance to enemy state number 3
-
-		//fire
-		/*if(qdistancetoenemy<=2.50){fire(3); }
-		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(2);}
-		if(qdistancetoenemy>5.00){fire(1);}*/
-		//fire
-
-		//your robot
-
-		qrl_x=quantize_positionX(getX()); //your x position -state number 1
-		qrl_y=quantize_positionY(getY()); //your y position -state number 2
-		//Calculating Enemy X & Y:
-		double angleToEnemy = e.getBearing();
-		// Calculate the angle to the scanned robot
-		double angle = Math.toRadians((getHeading() + angleToEnemy % 360));
-		// Calculate the coordinates of the robot
-		double enemyX = (getX() + Math.sin(angle) * e.getDistance());
-		double enemyY = (getY() + Math.cos(angle) * e.getDistance());
-		qenemy_x=quantize_positionX(enemyX);
-		qenemy_y=quantize_positionY(enemyY);
-		//distance to enemy
-		//absolute angle to enemy
-		absbearing=absoluteBearing((float) getX(),(float) getY(),(float) enemyX,(float) enemyY);
-		q_absbearing=quantize_angle(absbearing); //state number 4
-		double bearing = getHeadingRadians() + e.getBearingRadians();
-
-
-			// Calculate exact location of the robot
-			double absoluteBearing = getHeading() + e.getBearing();
-			double bearingFromGun = normalRelativeAngleDegrees(absoluteBearing - getGunHeading());
-
-			// If it's close enough, fire!
-			if (Math.abs(bearingFromGun) <= 3) {
-				turnGunRight(bearingFromGun);
-				// We check gun heat here, because calling fire()
-				// uses a turn, which could cause us to lose track
-				// of the other robot.
-				if (getGunHeat() == 0) {
-					fire(Math.min(3 - Math.abs(bearingFromGun), getEnergy() - .1));
-				}
-			} // otherwise just set the gun to turn.
-			// Note:  This will have no effect until we call scan()
-			else {
-				turnGunRight(bearingFromGun);
-			}
-			// Generates another scan event if we see a robot.
-			// We only need to call this if the gun (and therefore radar)
-			// are not turning.  Otherwise, scan is called automatically.
-			if (bearingFromGun == 0) {
-				scan();
-			}
-//		System.out.println(robocode.util.Utils.normalRelativeAngle(bearing - getGunHeadingRadians()));
-//		setTurnGunRight( 50 * robocode.util.Utils.normalRelativeAngle(bearing - getGunHeadingRadians()));
-//		if(qdistancetoenemy<=2.50){setFire(3);}
-//		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){setFire(2);}
-//		else{setFire(1);}
+	public void onScannedRobot(ScannedRobotEvent e) {
+		double angleToEnemy = getHeadingRadians() + e.getBearingRadians();
+		double radarTurn = Utils.normalRelativeAngle(angleToEnemy - getRadarHeadingRadians());
+		double extraTurn = Math.min(Math.atan(36.0 / e.getDistance()), Rules.RADAR_TURN_RATE_RADIANS);
+		if (radarTurn < 0) {
+			radarTurn -= extraTurn;
+		} else {
+			radarTurn += extraTurn;
 		}
+		setTurnRadarRightRadians(radarTurn);
+		X = getX();
+		Y = getY();
+		distance = e.getDistance();
+		velocity = e.getVelocity();
+		enemyHeading = e.getHeadingRadians();
+		double absBearingDeg = getHeading() + e.getBearing();
+		if (absBearingDeg < 0) absBearingDeg += 360;
+		deltaX = -distance * Math.sin(Math.toRadians(absBearingDeg));
+		deltaY = -distance * Math.cos(Math.toRadians(absBearingDeg));
+		deltaEnergy = getEnergy() - e.getEnergy();
+	}
 
 	public double normalizeBearing(double angle) {
 		while (angle >  180) angle -= 360;
@@ -389,23 +361,21 @@ public class Rl_nn extends AdvancedRobot {
 
 
 	//absolute bearing
-	double absoluteBearing(float x1, float y1, float x2, float y2) {
-		double xo = x2-x1;
-		double yo = y2-y1;
-		double hyp = Math.sqrt(Math.pow(xo,2) + Math.pow(yo,2));
+	double absoluteBearing(double x1, double y1, double x2, double y2) {
+		double xo = x2 - x1;
+		double yo = y2 - y1;
+		double hyp = Point2D.distance(x1, y1, x2, y2);
 		double arcSin = Math.toDegrees(Math.asin(xo / hyp));
 		double bearing = 0;
-
-		if (xo > 0 && yo > 0) { // both pos: lower-Left
+		if (xo > 0 && yo > 0) { // both pos:lower-Left
 			bearing = arcSin;
 		} else if (xo < 0 && yo > 0) { // x neg, y pos: lower-right
-			bearing = 360 + arcSin; // arcsin is negative here, actuall 360 - ang
-		} else if (xo > 0 && yo < 0) { // x pos, y neg: upper-left
+			bearing = 360 + arcSin; // arcsin is negative here, actuall 360 -ang
+		} else if (xo > 0 && yo < 0) { // x pos, y neg:upper-left
 			bearing = 180 - arcSin;
 		} else if (xo < 0 && yo < 0) { // both neg: upper-right
 			bearing = 180 - arcSin; // arcsin is negative here, actually 180 + ang
 		}
-
 		return bearing;
 	}
 
@@ -474,6 +444,9 @@ public class Rl_nn extends AdvancedRobot {
 
 	public void rl_action(int x){
 		switch(x){
+			case 0:
+				doGun();
+				break;
 			case 1:
 				int moveDirection=+1;  //moves in anticlockwise direction
 				if (getVelocity == 0)
@@ -504,6 +477,7 @@ public class Rl_nn extends AdvancedRobot {
 				// (you'll have to make Tracker an AdvancedRobot)
 				setBack(150);
 				break;
+
 
 
 
@@ -620,8 +594,8 @@ public class Rl_nn extends AdvancedRobot {
 
 			//Generate random weights_output array with Normal distribution
 			double[][] weights_output = new double[outputNeurons][hiddenLayerNeurons+1];
-			for (int j = 0; j < weights_hidden.length; j++){
-				for (int k = 0; k < weights_hidden[0].length; k++){
+			for (int j = 0; j < weights_output.length; j++){
+				for (int k = 0; k < weights_output[0].length; k++){
 					Random r = new Random();
 					double randomValue = r.nextGaussian()*randomWeightStandardDeviation;
 					weights_output[j][k] = randomValue;
