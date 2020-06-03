@@ -61,9 +61,9 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
-	static int inputNeurons = 6;
-	static int hiddenLayerNeurons = 19;
-	static int outputNeurons = 1;
+	static int inputNeurons = 5;
+	static int hiddenLayerNeurons = 4;
+	static int outputNeurons = 4;
 
 	double[] inputValues = new double[inputNeurons];
 	double[] inputValues_next = new double[inputNeurons];
@@ -84,6 +84,7 @@ public class Rl_nn extends AdvancedRobot {
 	boolean generateWeightFiles = false;
 	//
 	int currentRobotId = 0;
+
 	NNRobot currentRobot;
 	public void run(){
 
@@ -101,57 +102,57 @@ public class Rl_nn extends AdvancedRobot {
 
 		reward=0;
 
+        NN NN_obj=new NN(w_hx, w_yh);
+        if (!initialized){
+            //load config
+            currentRobotId = selectNextRobotID("config.txt");
+
+            //if done with generation -> create new generation
+            if (currentRobotId >= populationSize){
+                NNRobot[] parents = new NNRobot[populationSize];
+                for (int i = 0; i < populationSize; i++) {
+                    parents[i] = new NNRobot(i, NN_obj, this);
+                    parents[i].loadRobot();
+                }
+
+                NNRobot[] children = makeEvolution(parents);
+                for (int i = 0; i < children.length; i++) {
+                    children[i].set_ID(i);
+                    children[i].saveRobot();
+
+                }
+
+                resetConfig("config.txt");
+                currentRobotId = selectNextRobotID("config.txt");
+            }
+            currentRobot = new NNRobot(currentRobotId, NN_obj,this);
+            currentRobot.loadRobotWeights();
+            initialized = true;
+        }
+
 		while(true){
 
-			NN NN_obj=new NN(w_hx, w_yh);
-			if (!initialized){
-				//load config
-				currentRobotId = selectNextRobotID("config.txt");
-
-				//if done with generation -> create new generation
-				if (currentRobotId >= populationSize){
-					NNRobot[] parents = new NNRobot[populationSize];
-					for (int i = 0; i < populationSize; i++) {
-						parents[i] = new NNRobot(i, NN_obj, this);
-						parents[i].loadRobot();
-					}
-
-						NNRobot[] children = makeEvolution(parents);
-						for (int i = 0; i < children.length; i++) {
-							children[i].set_ID(i);
-							children[i].saveRobot();
-
-						}
-
-					resetConfig("config.txt");
-					currentRobotId = selectNextRobotID("config.txt");
-				}
-				currentRobot = new NNRobot(currentRobotId, NN_obj,this);
-				currentRobot.loadRobotWeights();
-				initialized = true;
-			}
-
-
-			q_present_double = new double[1];
-			q_next_double = new double[1];
+			q_present_double = new double[outputNeurons];
+			//q_next_double = new double[1];
 			turnGunRight(360);
-			random_action=randInt(1,total_actions.length);
-			state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
+			//random_action=randInt(1,total_actions.length);
+			//state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
 			inputValues[0]=qrl_x;
 			inputValues[1]=qrl_y;
 			inputValues[2]=qdistancetoenemy;
 			inputValues[3]=q_absbearing;
-			inputValues[4]=random_action;
-			inputValues[5]=1;
+			//inputValues[4]=random_action;
+			inputValues[4]=1;
 
 			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
 
+            int actionIndex = getMax(q_present_double);
 
-			rl_action(random_action);
+			rl_action(actionIndex);
 
 			turnGunRight(360);
 
-			inputValues_next[0]=qrl_x;
+			/*inputValues_next[0]=qrl_x;
 			inputValues_next[1]=qrl_y;
 			inputValues_next[2]=qdistancetoenemy;
 			inputValues_next[3]=q_absbearing;
@@ -163,16 +164,18 @@ public class Rl_nn extends AdvancedRobot {
 			//performing update
 			q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
 			targetValues[0]=q_present_double[0];
-
+            */
 		}//while loop ends
 	}//run function ends
 
 	public void saveReward(){
 		currentRobot.set_fitness((float)reward);
 		currentRobot.saveRobotFitness();
+		currentRobot.set_win(win);
+		currentRobot.saveRobotWins();
 	}
 
-	public void saveWin(){
+	/*public void saveWin(){
 		File file = getDataFile("winrate.txt");
 		try {
 			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), true);
@@ -182,7 +185,7 @@ public class Rl_nn extends AdvancedRobot {
 		catch (IOException e) {
 			e.printStackTrace();
 		}
-	}
+	}*/
 
 	//function definitions:
 	public void onScannedRobot(ScannedRobotEvent e)
@@ -252,6 +255,14 @@ public class Rl_nn extends AdvancedRobot {
 		writer.write(fitness + "\n");
 		writer.close();
 	}
+	public void saveWinrate(String fileName, int[] winrate) throws IOException{
+		File file = getDataFile(fileName);
+		RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),true);
+		for(int i = 0; i < winrate.length; i++) {
+			writer.write(winrate[i] + "\n");
+		}
+		writer.close();
+	}
 
 	public int selectNextRobotID(String robotAndRoundFile) {
 		int id = -1;
@@ -263,9 +274,10 @@ public class Rl_nn extends AdvancedRobot {
 			roundNum = Integer.parseInt(reader.readLine());
 			reader.close();
 
+
 			if (roundNum != 0 && roundNum % roundsPerRobot == 0) {
 				id++;
-				roundNum = 0;
+				roundNum = 1;
 			}else{
 				++roundNum;
 			}
@@ -300,18 +312,20 @@ public class Rl_nn extends AdvancedRobot {
 	public void onWin(WinEvent event) {
 		super.onWin(event);
 		reward += 10;
-		saveReward();
+
 		win = 1;
-		saveWin();
+		saveReward();
+
 	}
 
 	@Override
 	public void onDeath(DeathEvent event) {
 		super.onDeath(event);
 		reward -= 10;
-		saveReward();
+
 		win = 0;
-		saveWin();
+		saveReward();
+
 	}
 
 	private double quantize_angle(double absbearing2) {
@@ -752,6 +766,12 @@ public class Rl_nn extends AdvancedRobot {
 				saveFitness("generationInfo.txt", parents[i].get_fitness());
 			}
 			saveFitness("generationInfo.txt", -101010101);
+		}     catch (IOException e) {
+			e.printStackTrace();
+		}
+		try {
+			saveWinrate("winrate.txt", parents[1].get_winrate());
+			//saveFitness("wins.txt", -101010101);
 		}     catch (IOException e) {
 			e.printStackTrace();
 		}

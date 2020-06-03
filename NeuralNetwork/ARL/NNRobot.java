@@ -12,6 +12,9 @@ public class NNRobot {
     private NN _NN;
     private float _fitness;
     private Rl_nn robotRef;
+    private int win;
+    private int[] winrate;
+
 
     public NNRobot(int ID){
         this._ID = ID;
@@ -38,14 +41,30 @@ public class NNRobot {
 
     }
 
+
+    public void saveRobotWins(){
+        try {
+            saveWins(_ID + "wins.txt");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
     public void saveRobot(){
         //hidden weights
         saveWeights(_NN.w_hx,_ID + "weights_hidden.txt");
 
         //output weights
         saveWeights(_NN.w_yh,_ID + "weights_output.txt");
+
         try{
             resetFitness(_ID + "fitness.txt");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try{
+            resetWins(_ID + "wins.txt");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -63,11 +82,18 @@ public class NNRobot {
         RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),false);
         writer.close();
     }
+    private void resetWins(String fileName) throws IOException {
+
+        File file = robotRef.getDataFile(fileName);
+        RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),false);
+        writer.close();
+    }
 
     public void loadRobot(){
-        loadRobotWeights();
-        loadAndCalculateFitness();
-    }
+            loadRobotWeights();
+            loadAndCalculateFitness();
+            loadWins();
+        }
 
     public void loadRobotWeights(){
         try{
@@ -80,6 +106,36 @@ public class NNRobot {
         catch (IOException e) {
             e.printStackTrace();
         }
+    }
+    public void loadWins() {
+        try {
+            winrate = loadWinrates(_ID + "wins.txt");
+        }
+        catch(IOException e){
+            e.printStackTrace();
+        }
+    }
+
+    public int[] loadWinrates(String fileName) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(robotRef.getDataFile(fileName)));
+        ArrayList<String> input = new ArrayList<>();
+        try{
+            String line = reader.readLine();
+            while (line != null) {
+                input.add(line);
+                line= reader.readLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+            reader.close();
+        }
+        int[] returnArray = new int[input.size()];
+        for (int i = 0; i < returnArray.length; i++) {
+
+            returnArray[i] = Integer.parseInt(input.get(i));
+        }
+        return returnArray;
     }
 
     public void loadAndCalculateFitness(){
@@ -113,8 +169,12 @@ public class NNRobot {
     public void set_fitness(float _fitness) {
         this._fitness = _fitness;
     }
-
-
+    public void set_win(int win){
+        this.win = win;
+    }
+    public int[] get_winrate(){
+        return this.winrate;
+    }
     private void saveWeights(double[][] weights, String fileName) {
 
         PrintStream weightsStream = null;
@@ -169,7 +229,6 @@ public class NNRobot {
 
 
     }
-
     private void saveFitness(String fileName) throws IOException{
 
         File file = robotRef.getDataFile(fileName);
@@ -177,6 +236,15 @@ public class NNRobot {
         writer.write(_fitness + "\n");
         writer.close();
     }
+
+    private void saveWins(String fileName) throws IOException{
+
+        File file = robotRef.getDataFile(fileName);
+        RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),true);
+        writer.write(win + "\n");
+        writer.close();
+    }
+
 
     private double[] loadFitness(String fileName) throws IOException{
         BufferedReader reader = new BufferedReader(new FileReader(robotRef.getDataFile(fileName)));
