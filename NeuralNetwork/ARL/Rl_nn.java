@@ -3,9 +3,12 @@ package ARL; //change the package name as required
 import static robocode.util.Utils.getRandom;
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 import java.awt.Color;
+import java.awt.geom.Point2D;
 import java.io.*;
 
 import robocode.*;
+import robocode.util.Utils;
+
 import java.util.Random;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -61,9 +64,9 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
-	static int inputNeurons = 5;
-	static int hiddenLayerNeurons = 4;
-	static int outputNeurons = 4;
+	static int inputNeurons = 7;
+	static int hiddenLayerNeurons = 10;
+	static int outputNeurons = 5;
 
 	double[] inputValues = new double[inputNeurons];
 	double[] inputValues_next = new double[inputNeurons];
@@ -80,12 +83,22 @@ public class Rl_nn extends AdvancedRobot {
 	float randomWeightStandardDeviation = 5;
 
 	int roundsPerRobot = 20;
-	boolean initialized = false;
 	boolean generateWeightFiles = false;
+	boolean onlyRunFittestRobot = false;
 	//
 	int currentRobotId = 0;
 
 	NNRobot currentRobot;
+	private double enemyHeading = 0;
+	private double velocity = 0;
+	private long fireTime;
+	private double deltaX = 0;
+	private double deltaY = 0;
+	private double deltaEnergy = 0;
+	private double X = 0;
+	private double Y = 0;
+	private int lastAction = -1;
+
 	public void run(){
 
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
@@ -102,55 +115,63 @@ public class Rl_nn extends AdvancedRobot {
 
 		reward=0;
 
+		//initialize
         NN NN_obj=new NN(w_hx, w_yh);
-        if (!initialized){
-            //load config
-            currentRobotId = selectNextRobotID("config.txt");
+        if (onlyRunFittestRobot){
+			currentRobotId = 1;
+		} else{
+			//load config
+			currentRobotId = selectNextRobotID("config.txt");
+		}
 
-            //if done with generation -> create new generation
-            if (currentRobotId >= populationSize){
-                NNRobot[] parents = new NNRobot[populationSize];
-                for (int i = 0; i < populationSize; i++) {
-                    parents[i] = new NNRobot(i, NN_obj, this);
-                    parents[i].loadRobot();
-                }
+		//if done with generation -> create new generation
+		if (currentRobotId >= populationSize){
+			NNRobot[] parents = new NNRobot[populationSize];
+			for (int i = 0; i < populationSize; i++) {
+				parents[i] = new NNRobot(i, NN_obj, this);
+				parents[i].loadRobot();
+			}
 
-                NNRobot[] children = makeEvolution(parents);
-                for (int i = 0; i < children.length; i++) {
-                    children[i].set_ID(i);
-                    children[i].saveRobot();
+			NNRobot[] children = makeEvolution(parents);
+			for (int i = 0; i < children.length; i++) {
+				children[i].set_ID(i);
+				children[i].saveRobot();
 
-                }
+			}
 
-                resetConfig("config.txt");
-                currentRobotId = selectNextRobotID("config.txt");
-            }
-            currentRobot = new NNRobot(currentRobotId, NN_obj,this);
-            currentRobot.loadRobotWeights();
-            initialized = true;
-        }
+			resetConfig("config.txt");
+			currentRobotId = selectNextRobotID("config.txt");
+		}
+
+		currentRobot = new NNRobot(currentRobotId, NN_obj,this);
+		currentRobot.loadRobotWeights();
 
 		while(true){
 
 			q_present_double = new double[outputNeurons];
 			//q_next_double = new double[1];
-			turnGunRight(360);
+			setTurnRadarRight(360);
+			//setTurnGunRight(360);
 			//random_action=randInt(1,total_actions.length);
 			//state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
+
+			qrl_x=quantize_positionX(getX()); //your x position -state number 1
+			qrl_y=quantize_positionY(getY()); //your y position -state number 2
 			inputValues[0]=qrl_x;
 			inputValues[1]=qrl_y;
-			inputValues[2]=qdistancetoenemy;
-			inputValues[3]=q_absbearing;
+			inputValues[2]=deltaX;
+			inputValues[2]=deltaY;
+			inputValues[4]=deltaEnergy;
+			inputValues[5]=lastAction;
 			//inputValues[4]=random_action;
-			inputValues[4]=1;
+			inputValues[6]=1;
 
 			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
 
             int actionIndex = getMax(q_present_double);
-
+			lastAction = actionIndex;
 			rl_action(actionIndex);
-
-			turnGunRight(360);
+			execute();
 
 			/*inputValues_next[0]=qrl_x;
 			inputValues_next[1]=qrl_y;
@@ -188,59 +209,41 @@ public class Rl_nn extends AdvancedRobot {
 	}*/
 
 	//function definitions:
-	public void onScannedRobot(ScannedRobotEvent e)
-		{
-		double absBearing=e.getBearingRadians()+getHeadingRadians();
+	
 
-		this.absBearing=absBearing;
-		double getVelocity=e.getVelocity();
-		double getHeadingRadians=e.getHeadingRadians();
-		this.getHeadingRadians=getHeadingRadians;
-		this.getVelocity=getVelocity;
+	public void doGun()
+	{
+		double power = Math.min(400/distance, 3);
+		if (fireTime == getTime() && getGunTurnRemaining() == 0) {setFire(power);}
+		double bulletSpeed = 20 -power*3;
+		long time = (long)(distance/bulletSpeed);
+		double futureX = getX()-deltaX+Math.sin(enemyHeading)*velocity*time;
+		double futureY = getY()-deltaY+Math.cos(enemyHeading)*velocity*time;
+		double absDeg = absoluteBearing(getX(), getY(), futureX, futureY);
+		setTurnGunRight(normalizeBearing(absDeg-getGunHeading()));fireTime = getTime()+1;
+	}
 
-		double getBearing=e.getBearing();
-		this.getBearing=getBearing;
-		double getTime=getTime();
-		this.getTime=getTime;
-		gunTurnAmt = normalRelativeAngleDegrees(e.getBearing() + (getHeading() - getRadarHeading()));
-		this.gunTurnAmt=gunTurnAmt;
-
-		double normalizeBearing=normalizeBearing(getBearing + 90 - (15 * 1));
-		this.normalizeBearing=normalizeBearing;
-		robot_energy=getEnergy();
-		enemy_energy=e.getEnergy();
-		distance = e.getDistance(); //distance to the enemy
-		qdistancetoenemy=quantize_distance(distance); //distance to enemy state number 3
-
-		//fire
-		/*if(qdistancetoenemy<=2.50){fire(3); }
-		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(2);}
-		if(qdistancetoenemy>5.00){fire(1);}*/
-		//fire
-
-		//your robot
-
-		qrl_x=quantize_positionX(getX()); //your x position -state number 1
-		qrl_y=quantize_positionY(getY()); //your y position -state number 2
-		//Calculating Enemy X & Y:
-		double angleToEnemy = e.getBearing();
-		// Calculate the angle to the scanned robot
-		double angle = Math.toRadians((getHeading() + angleToEnemy % 360));
-		// Calculate the coordinates of the robot
-		double enemyX = (getX() + Math.sin(angle) * e.getDistance());
-		double enemyY = (getY() + Math.cos(angle) * e.getDistance());
-		qenemy_x=quantize_positionX(enemyX);
-		qenemy_y=quantize_positionY(enemyY);
-		//distance to enemy
-		//absolute angle to enemy
-		absbearing=absoluteBearing((float) getX(),(float) getY(),(float) enemyX,(float) enemyY);
-		q_absbearing=quantize_angle(absbearing); //state number 4
-		double bearing = getHeadingRadians() + e.getBearingRadians();
-		setTurnGunRight(robocode.util.Utils.normalRelativeAngle(bearing - getGunHeadingRadians()));
-		if(qdistancetoenemy<=2.50){fire(3);}
-		if(qdistancetoenemy>2.50&&qdistancetoenemy<5.00){fire(2);}
-		else{fire(1);}
+	public void onScannedRobot(ScannedRobotEvent e) {
+		double angleToEnemy = getHeadingRadians() + e.getBearingRadians();
+		double radarTurn = Utils.normalRelativeAngle(angleToEnemy - getRadarHeadingRadians());
+		double extraTurn = Math.min(Math.atan(36.0 / e.getDistance()), Rules.RADAR_TURN_RATE_RADIANS);
+		if (radarTurn < 0) {
+			radarTurn -= extraTurn;
+		} else {
+			radarTurn += extraTurn;
 		}
+		setTurnRadarRightRadians(radarTurn);
+		X = getX();
+		Y = getY();
+		distance = e.getDistance();
+		velocity = e.getVelocity();
+		enemyHeading = e.getHeadingRadians();
+		double absBearingDeg = getHeading() + e.getBearing();
+		if (absBearingDeg < 0) absBearingDeg += 360;
+		deltaX = -distance * Math.sin(Math.toRadians(absBearingDeg));
+		deltaY = -distance * Math.cos(Math.toRadians(absBearingDeg));
+		deltaEnergy = getEnergy() - e.getEnergy();
+	}
 
 	public double normalizeBearing(double angle) {
 		while (angle >  180) angle -= 360;
@@ -304,14 +307,14 @@ public class Rl_nn extends AdvancedRobot {
 		}
 	}
 
-	public void onHitRobot(HitRobotEvent event){reward-=2;} //our robot hit by enemy robot
-	public void onBulletHit(BulletHitEvent event){reward+=3;} //one of our bullet hits enemy robot
-	public void onHitByBullet(HitByBulletEvent event){reward-=3;} //when our robot is hit by a bullet
+	public void onHitRobot(HitRobotEvent event){reward-=5;} //our robot hit by enemy robot
+	public void onBulletHit(BulletHitEvent event){reward+=15;} //one of our bullet hits enemy robot
+	public void onHitByBullet(HitByBulletEvent event){reward-=15;} //when our robot is hit by a bullet
 
 	@Override
 	public void onWin(WinEvent event) {
 		super.onWin(event);
-		reward += 10;
+		reward += 15;
 
 		win = 1;
 		saveReward();
@@ -319,9 +322,15 @@ public class Rl_nn extends AdvancedRobot {
 	}
 
 	@Override
+	public void onRobotDeath(RobotDeathEvent event) {
+		super.onRobotDeath(event);
+		reward += 10;
+	}
+
+	@Override
 	public void onDeath(DeathEvent event) {
 		super.onDeath(event);
-		reward -= 10;
+		reward -= 100;
 
 		win = 0;
 		saveReward();
@@ -365,23 +374,21 @@ public class Rl_nn extends AdvancedRobot {
 
 
 	//absolute bearing
-	double absoluteBearing(float x1, float y1, float x2, float y2) {
-		double xo = x2-x1;
-		double yo = y2-y1;
-		double hyp = Math.sqrt(Math.pow(xo,2) + Math.pow(yo,2));
+	double absoluteBearing(double x1, double y1, double x2, double y2) {
+		double xo = x2 - x1;
+		double yo = y2 - y1;
+		double hyp = Point2D.distance(x1, y1, x2, y2);
 		double arcSin = Math.toDegrees(Math.asin(xo / hyp));
 		double bearing = 0;
-
-		if (xo > 0 && yo > 0) { // both pos: lower-Left
+		if (xo > 0 && yo > 0) { // both pos:lower-Left
 			bearing = arcSin;
 		} else if (xo < 0 && yo > 0) { // x neg, y pos: lower-right
-			bearing = 360 + arcSin; // arcsin is negative here, actuall 360 - ang
-		} else if (xo > 0 && yo < 0) { // x pos, y neg: upper-left
+			bearing = 360 + arcSin; // arcsin is negative here, actuall 360 -ang
+		} else if (xo > 0 && yo < 0) { // x pos, y neg:upper-left
 			bearing = 180 - arcSin;
 		} else if (xo < 0 && yo < 0) { // both neg: upper-right
 			bearing = 180 - arcSin; // arcsin is negative here, actually 180 + ang
 		}
-
 		return bearing;
 	}
 
@@ -450,6 +457,9 @@ public class Rl_nn extends AdvancedRobot {
 
 	public void rl_action(int x){
 		switch(x){
+			case 0:
+				doGun();
+				break;
 			case 1:
 				int moveDirection=+1;  //moves in anticlockwise direction
 				if (getVelocity == 0)
@@ -469,17 +479,18 @@ public class Rl_nn extends AdvancedRobot {
 				setAhead(150 * moveDirection1);
 				break;
 			case 3:
-				turnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
-				turnRight(getBearing-25); // and see how much Tracker improves...
+				//setTurnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
+				setTurnRight(getBearing-25); // and see how much Tracker improves...
 				// (you'll have to make Tracker an AdvancedRobot)
-				ahead(150);
+				setAhead(150);
 				break;
 			case 4:
-				turnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
-				turnRight(getBearing-25); // and see how much Tracker improves...
+				//setTurnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
+				setTurnRight(getBearing-25); // and see how much Tracker improves...
 				// (you'll have to make Tracker an AdvancedRobot)
-				back(150);
+				setBack(150);
 				break;
+
 
 
 
@@ -596,10 +607,12 @@ public class Rl_nn extends AdvancedRobot {
 
 			//Generate random weights_output array with Normal distribution
 			double[][] weights_output = new double[outputNeurons][hiddenLayerNeurons+1];
-			for (int j = 0; j < weights_output[0].length; j++){
-				Random r = new Random();
-				double randomValue = r.nextGaussian()*randomWeightStandardDeviation;
-				weights_output[0][j] = randomValue;
+			for (int j = 0; j < weights_output.length; j++){
+				for (int k = 0; k < weights_output[0].length; k++){
+					Random r = new Random();
+					double randomValue = r.nextGaussian()*randomWeightStandardDeviation;
+					weights_output[j][k] = randomValue;
+				}
 			}
 			NN newNN = new NN(weights_hidden, weights_output);
 			NNRobot newRobot = new NNRobot(i, newNN, this);
