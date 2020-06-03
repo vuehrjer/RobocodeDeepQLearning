@@ -61,9 +61,9 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
-	static int inputNeurons = 6;
-	static int hiddenLayerNeurons = 19;
-	static int outputNeurons = 1;
+	static int inputNeurons = 5;
+	static int hiddenLayerNeurons = 4;
+	static int outputNeurons = 4;
 
 	double[] inputValues = new double[inputNeurons];
 	double[] inputValues_next = new double[inputNeurons];
@@ -102,57 +102,57 @@ public class Rl_nn extends AdvancedRobot {
 
 		reward=0;
 
+        NN NN_obj=new NN(w_hx, w_yh);
+        if (!initialized){
+            //load config
+            currentRobotId = selectNextRobotID("config.txt");
+
+            //if done with generation -> create new generation
+            if (currentRobotId >= populationSize){
+                NNRobot[] parents = new NNRobot[populationSize];
+                for (int i = 0; i < populationSize; i++) {
+                    parents[i] = new NNRobot(i, NN_obj, this);
+                    parents[i].loadRobot();
+                }
+
+                NNRobot[] children = makeEvolution(parents);
+                for (int i = 0; i < children.length; i++) {
+                    children[i].set_ID(i);
+                    children[i].saveRobot();
+
+                }
+
+                resetConfig("config.txt");
+                currentRobotId = selectNextRobotID("config.txt");
+            }
+            currentRobot = new NNRobot(currentRobotId, NN_obj,this);
+            currentRobot.loadRobotWeights();
+            initialized = true;
+        }
+
 		while(true){
 
-			NN NN_obj=new NN(w_hx, w_yh);
-			if (!initialized){
-				//load config
-				currentRobotId = selectNextRobotID("config.txt");
-
-				//if done with generation -> create new generation
-				if (currentRobotId >= populationSize){
-					NNRobot[] parents = new NNRobot[populationSize];
-					for (int i = 0; i < populationSize; i++) {
-						parents[i] = new NNRobot(i, NN_obj, this);
-						parents[i].loadRobot();
-					}
-
-						NNRobot[] children = makeEvolution(parents);
-						for (int i = 0; i < children.length; i++) {
-							children[i].set_ID(i);
-							children[i].saveRobot();
-
-						}
-
-					resetConfig("config.txt");
-					currentRobotId = selectNextRobotID("config.txt");
-				}
-				currentRobot = new NNRobot(currentRobotId, NN_obj,this);
-				currentRobot.loadRobotWeights();
-				initialized = true;
-			}
-
-
-			q_present_double = new double[1];
-			q_next_double = new double[1];
+			q_present_double = new double[outputNeurons];
+			//q_next_double = new double[1];
 			turnGunRight(360);
-			random_action=randInt(1,total_actions.length);
-			state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
+			//random_action=randInt(1,total_actions.length);
+			//state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
 			inputValues[0]=qrl_x;
 			inputValues[1]=qrl_y;
 			inputValues[2]=qdistancetoenemy;
 			inputValues[3]=q_absbearing;
-			inputValues[4]=random_action;
-			inputValues[5]=1;
+			//inputValues[4]=random_action;
+			inputValues[4]=1;
 
 			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
 
+            int actionIndex = getMax(q_present_double);
 
-			rl_action(random_action);
+			rl_action(actionIndex);
 
 			turnGunRight(360);
 
-			inputValues_next[0]=qrl_x;
+			/*inputValues_next[0]=qrl_x;
 			inputValues_next[1]=qrl_y;
 			inputValues_next[2]=qdistancetoenemy;
 			inputValues_next[3]=q_absbearing;
@@ -164,7 +164,7 @@ public class Rl_nn extends AdvancedRobot {
 			//performing update
 			q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
 			targetValues[0]=q_present_double[0];
-
+            */
 		}//while loop ends
 	}//run function ends
 
