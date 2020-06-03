@@ -233,7 +233,7 @@ public class NNRobot {
 
         File file = robotRef.getDataFile(fileName);
         RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),true);
-        writer.write(_fitness + "\n");
+        writer.write(_fitness + "\r\n");
         writer.close();
     }
 
@@ -241,7 +241,7 @@ public class NNRobot {
 
         File file = robotRef.getDataFile(fileName);
         RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),true);
-        writer.write(win + "\n");
+        writer.write( win + "\r\n");
         writer.close();
     }
 
