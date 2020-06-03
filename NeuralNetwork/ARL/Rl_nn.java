@@ -64,7 +64,7 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
-	static int inputNeurons = 6;
+	static int inputNeurons = 7;
 	static int hiddenLayerNeurons = 10;
 	static int outputNeurons = 5;
 
@@ -84,6 +84,7 @@ public class Rl_nn extends AdvancedRobot {
 
 	int roundsPerRobot = 20;
 	boolean generateWeightFiles = false;
+	boolean onlyRunFittestRobot = false;
 	//
 	int currentRobotId = 0;
 
@@ -96,6 +97,7 @@ public class Rl_nn extends AdvancedRobot {
 	private double deltaEnergy = 0;
 	private double X = 0;
 	private double Y = 0;
+	private int lastAction = -1;
 
 	public void run(){
 
@@ -115,8 +117,12 @@ public class Rl_nn extends AdvancedRobot {
 
 		//initialize
         NN NN_obj=new NN(w_hx, w_yh);
-		//load config
-		currentRobotId = selectNextRobotID("config.txt");
+        if (onlyRunFittestRobot){
+			currentRobotId = 1;
+		} else{
+			//load config
+			currentRobotId = selectNextRobotID("config.txt");
+		}
 
 		//if done with generation -> create new generation
 		if (currentRobotId >= populationSize){
@@ -136,6 +142,7 @@ public class Rl_nn extends AdvancedRobot {
 			resetConfig("config.txt");
 			currentRobotId = selectNextRobotID("config.txt");
 		}
+
 		currentRobot = new NNRobot(currentRobotId, NN_obj,this);
 		currentRobot.loadRobotWeights();
 
@@ -150,19 +157,19 @@ public class Rl_nn extends AdvancedRobot {
 
 			qrl_x=quantize_positionX(getX()); //your x position -state number 1
 			qrl_y=quantize_positionY(getY()); //your y position -state number 2
-
 			inputValues[0]=qrl_x;
 			inputValues[1]=qrl_y;
 			inputValues[2]=deltaX;
 			inputValues[2]=deltaY;
 			inputValues[4]=deltaEnergy;
+			inputValues[5]=lastAction;
 			//inputValues[4]=random_action;
-			inputValues[5]=1;
+			inputValues[6]=1;
 
 			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
 
             int actionIndex = getMax(q_present_double);
-
+			lastAction = actionIndex;
 			rl_action(actionIndex);
 			execute();
 
@@ -300,14 +307,14 @@ public class Rl_nn extends AdvancedRobot {
 		}
 	}
 
-	public void onHitRobot(HitRobotEvent event){reward-=2;} //our robot hit by enemy robot
-	public void onBulletHit(BulletHitEvent event){reward+=3;} //one of our bullet hits enemy robot
-	public void onHitByBullet(HitByBulletEvent event){reward-=3;} //when our robot is hit by a bullet
+	public void onHitRobot(HitRobotEvent event){reward-=5;} //our robot hit by enemy robot
+	public void onBulletHit(BulletHitEvent event){reward+=15;} //one of our bullet hits enemy robot
+	public void onHitByBullet(HitByBulletEvent event){reward-=15;} //when our robot is hit by a bullet
 
 	@Override
 	public void onWin(WinEvent event) {
 		super.onWin(event);
-		reward += 10;
+		reward += 15;
 
 		win = 1;
 		saveReward();
@@ -315,9 +322,15 @@ public class Rl_nn extends AdvancedRobot {
 	}
 
 	@Override
+	public void onRobotDeath(RobotDeathEvent event) {
+		super.onRobotDeath(event);
+		reward += 10;
+	}
+
+	@Override
 	public void onDeath(DeathEvent event) {
 		super.onDeath(event);
-		reward -= 10;
+		reward -= 100;
 
 		win = 0;
 		saveReward();
