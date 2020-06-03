@@ -759,8 +759,8 @@ public class Rl_nn extends AdvancedRobot {
                 for (int k = 0; k < ParentNN.w_yh[0].length; k++) {
                     Random rand = new Random();
                     float randomFactor = rand.nextFloat();
-                    if (randomFactor < mutationChance) {
-                        Child.get_NN().w_yh[j][k] = rand.nextGaussian() * amplification + Child.get_NN().w_yh[j][k];
+                    if (randomFactor < mutationChance + (Math.log10(amplification))/(populationSize/2)) {
+                        Child.get_NN().w_yh[j][k] = rand.nextGaussian() * (Math.log10(100*amplification) + 0.1) + Child.get_NN().w_yh[j][k];
                     }
                 }
             }
