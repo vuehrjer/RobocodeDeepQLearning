@@ -330,7 +330,7 @@ public class Rl_nn extends AdvancedRobot {
 	@Override
 	public void onDeath(DeathEvent event) {
 		super.onDeath(event);
-		reward -= 100;
+		reward -= 50;
 
 		win = 0;
 		saveReward();
@@ -740,7 +740,7 @@ public class Rl_nn extends AdvancedRobot {
 	}
 
 
-    public NNRobot mutateParents(NNRobot Parent)
+    public NNRobot mutateParents(NNRobot Parent, int amplification)
     {
 
             NN ParentNN = Parent.get_NN();
@@ -750,8 +750,8 @@ public class Rl_nn extends AdvancedRobot {
                 for (int k = 0; k < ParentNN.w_hx[0].length; k++) {
                     Random rand = new Random();
                     float randomFactor = rand.nextFloat();
-                    if (randomFactor < mutationChance) {
-                        Child.get_NN().w_hx[j][k] = rand.nextGaussian() * 2 + Child.get_NN().w_hx[j][k];
+                    if (randomFactor < mutationChance + (Math.log10(amplification))/(populationSize/2)) { //mutation chance is higher for bad robots
+                        Child.get_NN().w_hx[j][k] = rand.nextGaussian() * (Math.log10(100*amplification) + 0.1) + Child.get_NN().w_hx[j][k]; // mutation is stronger for bad robots
                     }
                 }
             }
@@ -759,8 +759,8 @@ public class Rl_nn extends AdvancedRobot {
                 for (int k = 0; k < ParentNN.w_yh[0].length; k++) {
                     Random rand = new Random();
                     float randomFactor = rand.nextFloat();
-                    if (randomFactor < mutationChance) {
-                        Child.get_NN().w_yh[j][k] = rand.nextGaussian() * 2 + Child.get_NN().w_yh[j][k];
+                    if (randomFactor < mutationChance + (Math.log10(amplification))/(populationSize/2)) {
+                        Child.get_NN().w_yh[j][k] = rand.nextGaussian() * (Math.log10(100*amplification) + 0.1) + Child.get_NN().w_yh[j][k];
                     }
                 }
             }
@@ -791,12 +791,26 @@ public class Rl_nn extends AdvancedRobot {
 
         nextGeneration[0]= parents[0];
         nextGeneration[1] = parents[1];
-        int crossoverNumber = populationSize - mutationNumber - 2;
-        int i=2;
-        while(i < nextGeneration.length)
+        int crossoverNumber = populationSize - parents.length + 2;
+
+        if(crossoverNumber % 2 == 0)
+		{
+			mutationNumber = parents.length;
+		}
+        else{
+        	mutationNumber = parents.length - 1;
+		}
+
+		int i=2;
+		while(i < mutationNumber)
+		{
+				nextGeneration[i] = mutateParents(parents[i], i);
+				i++;
+
+		}
+        while(i < nextGeneration.length - 1)
         {
-            if(i < crossoverNumber - 2)
-            {
+
                 NNRobot[] children;
                 int random1 = ThreadLocalRandom.current().nextInt(0, parents.length);
                 int random2 = ThreadLocalRandom.current().nextInt(0, parents.length);
@@ -804,23 +818,8 @@ public class Rl_nn extends AdvancedRobot {
                 NNRobot parent2 = parents[random2];
                 children = crossover(parent1, parent2);
                 nextGeneration[i] = children[0];
-
                 nextGeneration[i+1] = children[1];
                 i+=2;
-            }
-            else
-            {
-                NNRobot[] dummyParents = new NNRobot[mutationNumber];
-                for(int j = 0; j < mutationNumber; j++)
-                {
-                	if(i < nextGeneration.length) {
-						int randomDummy = ThreadLocalRandom.current().nextInt(0, parents.length);
-						dummyParents[j] = mutateParents(parents[randomDummy]);
-						nextGeneration[i] = dummyParents[j];
-						i++;
-					}
-                }
-            }
         }
         return nextGeneration;
     }
