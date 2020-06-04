@@ -270,12 +270,19 @@ public class NNRobot {
 
 
     private void calculateFitness(double[] fitnesses) {
-        double sum = 0;
-        Arrays.sort(fitnesses);
-        if (fitnesses.length == 0){
+        if (fitnesses.length == 0) {
             _fitness = 0;
-        } else {
-            _fitness =  (float)fitnesses[ (fitnesses.length/2)];
+        }else{
+            if (robotRef.medianFitness) {
+                Arrays.sort(fitnesses);
+                _fitness = (float) fitnesses[(fitnesses.length / 2)];
+            } else {
+                double sum = 0;
+                for (double f:fitnesses) {
+                    sum += f;
+                }
+                _fitness = (float)sum/fitnesses.length;
+            }
         }
     }
 

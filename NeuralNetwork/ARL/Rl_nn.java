@@ -1,7 +1,5 @@
 package ARL; //change the package name as required
 
-import static robocode.util.Utils.getRandom;
-import static robocode.util.Utils.normalRelativeAngleDegrees;
 import java.awt.Color;
 import java.awt.geom.Point2D;
 import java.io.*;
@@ -66,7 +64,7 @@ public class Rl_nn extends AdvancedRobot {
 
 	static int inputNeurons = 7;
 	static int hiddenLayerNeurons = 10;
-	static int outputNeurons = 5;
+	static int outputNeurons = 6;
 
 	double[] inputValues = new double[inputNeurons];
 	double[] inputValues_next = new double[inputNeurons];
@@ -82,9 +80,11 @@ public class Rl_nn extends AdvancedRobot {
 	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 
-	int roundsPerRobot = 20;
+	int roundsPerRobot = 100;
 	boolean generateWeightFiles = false;
-	boolean onlyRunFittestRobot = false;
+	boolean onlyRunFittestRobot = true;
+	boolean diverseSearch = false;
+	boolean medianFitness = true;
 	//
 	int currentRobotId = 0;
 
@@ -94,7 +94,7 @@ public class Rl_nn extends AdvancedRobot {
 	private long fireTime;
 	private double deltaX = 0;
 	private double deltaY = 0;
-	private double deltaEnergy = 0;
+	private double enemyEnergy = 100;
 	private double X = 0;
 	private double Y = 0;
 	private int lastAction = -1;
@@ -150,19 +150,19 @@ public class Rl_nn extends AdvancedRobot {
 
 			q_present_double = new double[outputNeurons];
 			//q_next_double = new double[1];
-			setTurnRadarRight(360);
 			//setTurnGunRight(360);
 			//random_action=randInt(1,total_actions.length);
 			//state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
 
+			setTurnRadarRight(360);
 			qrl_x=quantize_positionX(getX()); //your x position -state number 1
 			qrl_y=quantize_positionY(getY()); //your y position -state number 2
 			inputValues[0]=qrl_x;
 			inputValues[1]=qrl_y;
 			inputValues[2]=deltaX;
-			inputValues[2]=deltaY;
-			inputValues[4]=deltaEnergy;
-			inputValues[5]=lastAction;
+			inputValues[3]=deltaY;
+			inputValues[4]= getEnergy();
+			inputValues[5]= enemyEnergy;
 			//inputValues[4]=random_action;
 			inputValues[6]=1;
 
@@ -171,21 +171,13 @@ public class Rl_nn extends AdvancedRobot {
             int actionIndex = getMax(q_present_double);
 			lastAction = actionIndex;
 			rl_action(actionIndex);
+			for (int i = 0; i < q_present_double.length; i++) {
+				if (q_present_double[i] > (q_present_double[actionIndex] / 1.5) && i != actionIndex){
+					rl_action(i);
+				}
+			}
 			execute();
 
-			/*inputValues_next[0]=qrl_x;
-			inputValues_next[1]=qrl_y;
-			inputValues_next[2]=qdistancetoenemy;
-			inputValues_next[3]=q_absbearing;
-			inputValues_next[4]=random_action;
-			inputValues_next[5]=q_next_double[0];
-			q_next_double= currentRobot.get_NN().NNfeedforward(inputValues);
-
-
-			//performing update
-			q_present_double[0]=q_present_double[0]+alpha*(reward+gamma*q_next_double[0]-q_present_double[0]);
-			targetValues[0]=q_present_double[0];
-            */
 		}//while loop ends
 	}//run function ends
 
@@ -196,31 +188,29 @@ public class Rl_nn extends AdvancedRobot {
 		currentRobot.saveRobotWins();
 	}
 
-	/*public void saveWin(){
-		File file = getDataFile("winrate.txt");
-		try {
-			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), true);
-			writer.write(win + "\n");
-			writer.close();
-		}
-		catch (IOException e) {
-			e.printStackTrace();
-		}
-	}*/
-
-	//function definitions:
-	
 
 	public void doGun()
 	{
 		double power = Math.min(400/distance, 3);
-		if (fireTime == getTime() && getGunTurnRemaining() == 0) {setFire(power);}
-		double bulletSpeed = 20 -power*3;
-		long time = (long)(distance/bulletSpeed);
-		double futureX = getX()-deltaX+Math.sin(enemyHeading)*velocity*time;
-		double futureY = getY()-deltaY+Math.cos(enemyHeading)*velocity*time;
+		trackAndShoot(power);
+	}
+	public void doGunMAX()
+	{
+		double power = 3;
+		trackAndShoot(power);
+	}
+
+	private void trackAndShoot(double power) {
+		if (fireTime == getTime() && getGunTurnRemaining() == 0) {
+			setFire(power);
+		}
+		double bulletSpeed = 20 - power * 3;
+		long time = (long) (distance / bulletSpeed);
+		double futureX = getX() - deltaX + Math.sin(enemyHeading) * velocity * time;
+		double futureY = getY() - deltaY + Math.cos(enemyHeading) * velocity * time;
 		double absDeg = absoluteBearing(getX(), getY(), futureX, futureY);
-		setTurnGunRight(normalizeBearing(absDeg-getGunHeading()));fireTime = getTime()+1;
+		setTurnGunRight(normalizeBearing(absDeg - getGunHeading()));
+		fireTime = getTime() + 1;
 	}
 
 	public void onScannedRobot(ScannedRobotEvent e) {
@@ -242,7 +232,7 @@ public class Rl_nn extends AdvancedRobot {
 		if (absBearingDeg < 0) absBearingDeg += 360;
 		deltaX = -distance * Math.sin(Math.toRadians(absBearingDeg));
 		deltaY = -distance * Math.cos(Math.toRadians(absBearingDeg));
-		deltaEnergy = getEnergy() - e.getEnergy();
+		enemyEnergy = e.getEnergy();
 	}
 
 	public double normalizeBearing(double angle) {
@@ -308,14 +298,15 @@ public class Rl_nn extends AdvancedRobot {
 	}
 
 	public void onHitRobot(HitRobotEvent event){reward-=5;} //our robot hit by enemy robot
-	public void onBulletHit(BulletHitEvent event){reward+=15;} //one of our bullet hits enemy robot
-	public void onHitByBullet(HitByBulletEvent event){reward-=15;} //when our robot is hit by a bullet
+	public void onBulletHit(BulletHitEvent event){		;
+		reward+=15 * event.getBullet().getPower();
+	} //one of our bullet hits enemy robot
+	public void onHitByBullet(HitByBulletEvent event){reward-=25;} //when our robot is hit by a bullet
 
 	@Override
 	public void onWin(WinEvent event) {
 		super.onWin(event);
 		reward += 15;
-
 		win = 1;
 		saveReward();
 
@@ -324,7 +315,7 @@ public class Rl_nn extends AdvancedRobot {
 	@Override
 	public void onRobotDeath(RobotDeathEvent event) {
 		super.onRobotDeath(event);
-		reward += 10;
+		//reward += 10;
 	}
 
 	@Override
@@ -490,10 +481,9 @@ public class Rl_nn extends AdvancedRobot {
 				// (you'll have to make Tracker an AdvancedRobot)
 				setBack(150);
 				break;
-
-
-
-
+			case 5:
+				doGunMAX();
+				break;
 		}
 	}//rl_action()
 
@@ -775,10 +765,7 @@ public class Rl_nn extends AdvancedRobot {
         parents = selectParents(robots);
 
 		try {
-			for (int i = 0; i < parents.length; i++) {
-				saveFitness("generationInfo.txt", parents[i].get_fitness());
-			}
-			saveFitness("generationInfo.txt", -101010101);
+			saveFitness("generationInfo.txt", parents[1].get_fitness());
 		}     catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -788,8 +775,11 @@ public class Rl_nn extends AdvancedRobot {
 		}     catch (IOException e) {
 			e.printStackTrace();
 		}
-
-        nextGeneration[0]= parents[0];
+		if (diverseSearch){
+			nextGeneration[0]= parents[0];
+		}else{
+			nextGeneration[0]= parents[1];
+		}
         nextGeneration[1] = parents[1];
         int crossoverNumber = populationSize - parents.length + 2;
 
