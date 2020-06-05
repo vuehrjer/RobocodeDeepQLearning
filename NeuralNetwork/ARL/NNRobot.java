@@ -51,6 +51,13 @@ public class NNRobot {
 
     }
 
+    public void updateWeights(){
+        saveWeights(_NN.w_hx,_ID + "weights_hidden.txt");
+
+        //output weights
+        saveWeights(_NN.w_yh,_ID + "weights_output.txt");
+    }
+
     public void saveRobot(){
         //hidden weights
         saveWeights(_NN.w_hx,_ID + "weights_hidden.txt");

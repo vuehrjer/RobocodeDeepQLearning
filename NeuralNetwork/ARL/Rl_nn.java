@@ -15,6 +15,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class Rl_nn extends AdvancedRobot {
 	final double alpha = 0.1;
     final double gamma = 0.9;
+    double epsilon = 0.6;
     double distance=0;
     double mutationChance = 0.1;
     int mutationNumber = 12;
@@ -38,11 +39,30 @@ public class Rl_nn extends AdvancedRobot {
     String state_action_combi=null;
     String state_action_combi_greedy=null;
     double robot_energy=0;
+    double hitwallReward;
+    double hitByBulletReward;
+    double hitBulletReward;
+    double onWinReward;
+    double onDeathReward;
+    double hitRobotReward;
+    double[] hyperparams = {
+            alpha,
+            gamma,
+            hitBulletReward,
+            hitByBulletReward,
+            hitRobotReward,
+            hitwallReward,
+            onDeathReward,
+            onWinReward,
+            hiddenLayerNeurons
+    };
 
     double[] q_present_double;
+    double current_q_value;
     int random_action=0;
-
+    double next_q_value;
 	double[] q_next_double;
+
 	int Qmax_action=0;
 	double[] q_possible=new double[total_actions.length];
 	double enemy_energy=0;
@@ -62,16 +82,16 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
-	static int inputNeurons = 7;
+	static int inputNeurons = 6;
 	static int hiddenLayerNeurons = 10;
 	static int outputNeurons = 6;
-
-	double[] inputValues = new double[inputNeurons];
+    double[] inputValuesNew = new double[inputNeurons + 1];
+	double[] inputValues = new double[inputNeurons + 1];
 	double[] inputValues_next = new double[inputNeurons];
 	double[] targetValues = new double[outputNeurons];
 
-	static double[][] w_hx = new double[hiddenLayerNeurons][inputNeurons];
-	String[][] w_hxs = new String[hiddenLayerNeurons][inputNeurons];
+	static double[][] w_hx = new double[hiddenLayerNeurons][inputNeurons + 1];
+	String[][] w_hxs = new String[hiddenLayerNeurons][inputNeurons + 1];
 
 	//hidden layer output: amount of neurons + 1 bias
 	static double[][] w_yh = new double[outputNeurons][hiddenLayerNeurons + 1];
@@ -80,10 +100,10 @@ public class Rl_nn extends AdvancedRobot {
 	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 
-	int roundsPerRobot = 100;
+	int roundsPerRobot = 50;
 	boolean generateWeightFiles = false;
 	boolean onlyRunFittestRobot = true;
-	boolean diverseSearch = false;
+	boolean diverseSearch = true;
 	boolean medianFitness = true;
 	//
 	int currentRobotId = 0;
@@ -148,6 +168,8 @@ public class Rl_nn extends AdvancedRobot {
 
 		while(true){
 
+			currentRobot.loadRobotWeights();
+
 			q_present_double = new double[outputNeurons];
 			//q_next_double = new double[1];
 			//setTurnGunRight(360);
@@ -163,27 +185,65 @@ public class Rl_nn extends AdvancedRobot {
 			inputValues[3]=deltaY;
 			inputValues[4]= getEnergy();
 			inputValues[5]= enemyEnergy;
-			//inputValues[4]=random_action;
 			inputValues[6]=1;
 
 			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
 
-            int actionIndex = getMax(q_present_double);
+			reward = 0;
+
+			int actionIndex = getMax(q_present_double);
 			lastAction = actionIndex;
-			rl_action(actionIndex);
-			for (int i = 0; i < q_present_double.length; i++) {
+			current_q_value = q_present_double[actionIndex];
+
+			dummy = ThreadLocalRandom.current().nextDouble(0, 1);
+
+
+			if(dummy < epsilon) {
+				rl_action(actionIndex);
+			}
+			else{
+				random_action = ThreadLocalRandom.current().nextInt(outputNeurons);
+				rl_action(random_action);
+			}
+
+
+
+/*			for (int i = 0; i < q_present_double.length; i++) {
 				if (q_present_double[i] > (q_present_double[actionIndex] / 1.5) && i != actionIndex){
 					rl_action(i);
 				}
 			}
+
+ */
+
 			execute();
+
+            qrl_x=quantize_positionX(getX()); //your x position -state number 1
+            qrl_y=quantize_positionY(getY()); //your y position -state number 2
+            inputValuesNew[0]=qrl_x;
+            inputValuesNew[1]=qrl_y;
+            inputValuesNew[2]=deltaX;
+            inputValuesNew[3]=deltaY;
+            inputValuesNew[4]= getEnergy();
+            inputValuesNew[5]= enemyEnergy;
+            inputValuesNew[6]=1;
+
+            q_next_double=currentRobot.get_NN().NNfeedforward(inputValuesNew);
+            next_q_value = q_next_double[getMax(q_next_double)];
+
+            for(int i = 0; i < outputNeurons; i++) {
+                q_present_double[i] = q_present_double[i] + alpha * (reward + gamma * q_next_double[i] - q_present_double[i]);
+            }
+            currentRobot.get_NN().NNtrain(inputValues, q_present_double);
+
+            currentRobot.updateWeights();
 
 		}//while loop ends
 	}//run function ends
 
 	public void saveReward(){
-		currentRobot.set_fitness((float)reward);
-		currentRobot.saveRobotFitness();
+		//currentRobot.set_fitness((float)reward);
+		//currentRobot.saveRobotFitness();
 		currentRobot.set_win(win);
 		currentRobot.saveRobotWins();
 	}
@@ -586,7 +646,7 @@ public class Rl_nn extends AdvancedRobot {
 		for (int i = 0; i < numberRobots; i++){
 
 			//Generate random weights_hidden array with Normal distribution
-			double[][] weights_hidden = new double[hiddenLayerNeurons][inputNeurons]; //Create
+			double[][] weights_hidden = new double[hiddenLayerNeurons][inputNeurons + 1]; //Create
 			for (int j = 0; j < weights_hidden.length; j++){
 				for (int k = 0; k < weights_hidden[0].length; k++){
 					Random r = new Random();
