@@ -53,7 +53,7 @@ public class Rl_nn extends AdvancedRobot {
 	private double getHeadingRadians;
 	private double getVelocity;
 	private double absBearing;
-	private double getBearing;
+	//private double getBearing;
 	private double getTime;
 	private double normalizeBearing;
 	int populationSize = 24;
@@ -62,8 +62,8 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
-	static int inputNeurons = 7;
-	static int hiddenLayerNeurons = 10;
+	static int inputNeurons = 9;
+	static int hiddenLayerNeurons = 12;
 	static int outputNeurons = 6;
 
 	double[] inputValues = new double[inputNeurons];
@@ -80,14 +80,12 @@ public class Rl_nn extends AdvancedRobot {
 	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 
-	int roundsPerRobot = 100;
+	int roundsPerRobot = 50;
 	boolean generateWeightFiles = false;
-	boolean onlyRunFittestRobot = true;
-	boolean diverseSearch = false;
+	boolean onlyRunFittestRobot = false;
+	boolean diverseSearch = true;
 	boolean medianFitness = true;
-	//
 	int currentRobotId = 0;
-
 	NNRobot currentRobot;
 	private double enemyHeading = 0;
 	private double velocity = 0;
@@ -99,7 +97,13 @@ public class Rl_nn extends AdvancedRobot {
 	private double Y = 0;
 	private int lastAction = -1;
 
+	double gunHeadingAbsoluteRadians;
+	Vector2D delta;
+	Vector2D gunVector;
+
 	public void run(){
+
+
 
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
 		setBodyColor(Color.PINK);
@@ -122,30 +126,33 @@ public class Rl_nn extends AdvancedRobot {
 		} else{
 			//load config
 			currentRobotId = selectNextRobotID("config.txt");
+			//File is locked by another program
+			if (currentRobotId == -1) return;
 		}
-
 		//if done with generation -> create new generation
+
 		if (currentRobotId >= populationSize){
-			NNRobot[] parents = new NNRobot[populationSize];
-			for (int i = 0; i < populationSize; i++) {
-				parents[i] = new NNRobot(i, NN_obj, this);
-				parents[i].loadRobot();
-			}
+				NNRobot[] parents = new NNRobot[populationSize];
+				for (int i = 0; i < populationSize; i++) {
+					parents[i] = new NNRobot(i, NN_obj, this);
+					parents[i].loadRobot();
+				}
 
-			NNRobot[] children = makeEvolution(parents);
-			for (int i = 0; i < children.length; i++) {
-				children[i].set_ID(i);
-				children[i].saveRobot();
+				NNRobot[] children = makeEvolution(parents);
+				for (int i = 0; i < children.length; i++) {
+					children[i].set_ID(i);
+					children[i].saveRobot();
 
-			}
+				}
 
-			resetConfig("config.txt");
-			currentRobotId = selectNextRobotID("config.txt");
+				resetConfig("config.txt");
+				currentRobotId = selectNextRobotID("config.txt");
 		}
 
 		currentRobot = new NNRobot(currentRobotId, NN_obj,this);
 		currentRobot.loadRobotWeights();
-
+		delta = new Vector2D();
+		gunVector = new Vector2D();
 		while(true){
 
 			q_present_double = new double[outputNeurons];
@@ -155,17 +162,21 @@ public class Rl_nn extends AdvancedRobot {
 			//state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
 
 			setTurnRadarRight(360);
-			qrl_x=quantize_positionX(getX()); //your x position -state number 1
-			qrl_y=quantize_positionY(getY()); //your y position -state number 2
-			inputValues[0]=qrl_x;
-			inputValues[1]=qrl_y;
-			inputValues[2]=deltaX;
-			inputValues[3]=deltaY;
-			inputValues[4]= getEnergy();
-			inputValues[5]= enemyEnergy;
+			qrl_x=getX()/getBattleFieldWidth(); //your x position -state number 1
+			qrl_y=getY()/getBattleFieldHeight(); //your y position -state number 2
+			//create vector from gun heading
+			gunHeadingAbsoluteRadians = getGunHeadingRadians();
+			inputValues[0]= qrl_x;
+			inputValues[1]= qrl_y;
+			inputValues[2]= deltaX/getBattleFieldWidth();
+			inputValues[3]= deltaY/getBattleFieldHeight();
+			//gun heading in vector
+			inputValues[4]= Math.sin(gunHeadingAbsoluteRadians);
+			inputValues[5]= Math.cos(gunHeadingAbsoluteRadians);
+			inputValues[6]= getEnergy();
+			inputValues[7]= enemyEnergy;
 			//inputValues[4]=random_action;
-			inputValues[6]=1;
-
+			inputValues[8]=1;
 			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
 
             int actionIndex = getMax(q_present_double);
@@ -181,12 +192,29 @@ public class Rl_nn extends AdvancedRobot {
 		}//while loop ends
 	}//run function ends
 
-	public void saveReward(){
-		currentRobot.set_fitness((float)reward);
-		currentRobot.saveRobotFitness();
-		currentRobot.set_win(win);
-		currentRobot.saveRobotWins();
-	}
+	public void rl_action(int x){
+		switch(x){
+			case 0:
+				setBack(50);
+				break;
+			case 1:
+				setAhead(50);
+				setTurnRight(25);
+				break;
+			case 2:
+				setAhead(50);
+				setTurnRight(25);
+				break;
+			case 3:
+				setTurnGunRight(10);
+			case 4:
+				setTurnGunLeft(10);
+				break;
+			case 5:
+				doGunMAX();
+				break;
+		}
+	}//rl_action()
 
 
 	public void doGun()
@@ -201,17 +229,34 @@ public class Rl_nn extends AdvancedRobot {
 	}
 
 	private void trackAndShoot(double power) {
-		if (fireTime == getTime() && getGunTurnRemaining() == 0) {
+		//reward += inputValues[]
+		if (getGunHeat() == 0) {
+			if (inputValues[2] == 0 && inputValues[3] == 0){
+				//this thing doesnt even know where the robot is, but trys to shoot
+				reward -= 10;
+			} else{
+				//reward based on how good the direction of the shot was
+				//normalize delta
+				delta.x = deltaX/getBattleFieldWidth();
+				delta.y = deltaY/getBattleFieldHeight();
+				gunVector.x = Math.sin(gunHeadingAbsoluteRadians);
+				gunVector.y = Math.cos(gunHeadingAbsoluteRadians);
+				delta.normalize();
+				System.out.println("Original Delta: " + deltaX + " - " + deltaY);
+				System.out.println("Delte normalized: " + delta.toString());
+				System.out.println("Gun Vector: " + gunVector.toString());
+				System.out.println("Gun Heading Radians: " + gunHeadingAbsoluteRadians);
+				gunVector.multiply(-1);
+				double shotValue = Vector2D.dot(gunVector, delta);
+				System.out.println("Dot Prod " + shotValue);
+				System.out.println("-------");
+				reward += 25 * 3 * shotValue;
+			}
 			setFire(power);
 		}
-		double bulletSpeed = 20 - power * 3;
-		long time = (long) (distance / bulletSpeed);
-		double futureX = getX() - deltaX + Math.sin(enemyHeading) * velocity * time;
-		double futureY = getY() - deltaY + Math.cos(enemyHeading) * velocity * time;
-		double absDeg = absoluteBearing(getX(), getY(), futureX, futureY);
-		setTurnGunRight(normalizeBearing(absDeg - getGunHeading()));
-		fireTime = getTime() + 1;
 	}
+
+
 
 	public void onScannedRobot(ScannedRobotEvent e) {
 		double angleToEnemy = getHeadingRadians() + e.getBearingRadians();
@@ -230,8 +275,8 @@ public class Rl_nn extends AdvancedRobot {
 		enemyHeading = e.getHeadingRadians();
 		double absBearingDeg = getHeading() + e.getBearing();
 		if (absBearingDeg < 0) absBearingDeg += 360;
-		deltaX = -distance * Math.sin(Math.toRadians(absBearingDeg));
-		deltaY = -distance * Math.cos(Math.toRadians(absBearingDeg));
+		deltaX = (-distance * Math.sin(Math.toRadians(absBearingDeg)));// / getBattleFieldWidth();;
+		deltaY = (-distance * Math.cos(Math.toRadians(absBearingDeg)));// / getBattleFieldHeight();;
 		enemyEnergy = e.getEnergy();
 	}
 
@@ -261,12 +306,26 @@ public class Rl_nn extends AdvancedRobot {
 		int id = -1;
 		int roundNum;
 		File file = getDataFile(robotAndRoundFile);
+		BufferedReader reader = null;
 		try {
-			BufferedReader reader = new BufferedReader(new FileReader(file));
-			id = Integer.parseInt(reader.readLine());
-			roundNum = Integer.parseInt(reader.readLine());
-			reader.close();
-
+			reader = new BufferedReader(new FileReader(file));
+			try {
+				id = Integer.parseInt(reader.readLine());
+				roundNum = Integer.parseInt(reader.readLine());
+			} catch (NumberFormatException e){
+				//try to fix the file, only master is allowed to try that
+				reader.close();
+				return -1;
+//				if (canMakeEvolution){
+//					resetConfig(robotAndRoundFile);
+//					roundNum = 0;
+//					id = 0;
+//					e.printStackTrace();
+//					return 0;
+//				} else {
+//					return -1;
+//				}
+			}
 
 			if (roundNum != 0 && roundNum % roundsPerRobot == 0) {
 				id++;
@@ -275,9 +334,11 @@ public class Rl_nn extends AdvancedRobot {
 				++roundNum;
 			}
 
+
 			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), false);
 			writer.write(id + "\n");
 			writer.write(roundNum + "\n");
+			reader.close();
 			writer.close();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -298,10 +359,9 @@ public class Rl_nn extends AdvancedRobot {
 	}
 
 	public void onHitRobot(HitRobotEvent event){reward-=5;} //our robot hit by enemy robot
-	public void onBulletHit(BulletHitEvent event){		;
-		reward+=15 * event.getBullet().getPower();
-	} //one of our bullet hits enemy robot
-	public void onHitByBullet(HitByBulletEvent event){reward-=25;} //when our robot is hit by a bullet
+	public void onBulletHit(BulletHitEvent event){reward+=15 * event.getBullet().getPower();} //one of our bullet hits enemy robot
+	public void onHitByBullet(HitByBulletEvent event){reward-=25*3;} //when our robot is hit by a bullet
+	//public void onBulletMissed(BulletMissedEvent event) {reward-=15 * event.getBullet().getPower();}
 
 	@Override
 	public void onWin(WinEvent event) {
@@ -311,6 +371,7 @@ public class Rl_nn extends AdvancedRobot {
 		saveReward();
 
 	}
+
 
 	@Override
 	public void onRobotDeath(RobotDeathEvent event) {
@@ -327,42 +388,6 @@ public class Rl_nn extends AdvancedRobot {
 		saveReward();
 
 	}
-
-	private double quantize_angle(double absbearing2) {
-
-		if((absbearing2 > 0) && (absbearing2<=90)){
-			q_absbearing=1;
-			}
-		else if((absbearing2 > 90) && (absbearing2<=180)){
-			q_absbearing=2;
-			}
-		else if((absbearing2 > 180) && (absbearing2<=270)){
-			q_absbearing=3;
-			}
-		else if((absbearing2 > 270) && (absbearing2<=360)){
-			q_absbearing=4;
-			}
-		return absbearing2/90;
-	}
-
-	private double quantize_distance(double distance2) {
-
-		if((distance2 > 0) && (distance2<=250)){
-			qdistancetoenemy=1;
-			}
-		else if((distance2 > 250) && (distance2<=500)){
-			qdistancetoenemy=2;
-			}
-		else if((distance2 > 500) && (distance2<=750)){
-			qdistancetoenemy=3;
-			}
-		else if((distance2 > 750) && (distance2<=1000)){
-			qdistancetoenemy=4;
-			}
-		qdistancetoenemy=distance2/100;
-		return qdistancetoenemy;
-	}
-
 
 	//absolute bearing
 	double absoluteBearing(double x1, double y1, double x2, double y2) {
@@ -384,108 +409,15 @@ public class Rl_nn extends AdvancedRobot {
 	}
 
 	private double quantize_positionX(double rl_x2) {
-			// TODO Auto-generated method stub
-
-		/*if((rl_x2 > 0) && (rl_x2<=100)){
-			qrl_x=1;
-			}
-		else if((rl_x2 > 100) && (rl_x2<=200)){
-			qrl_x=2;
-			}
-		else if((rl_x2 > 200) && (rl_x2<=300)){
-			qrl_x=3;
-			}
-		else if((rl_x2 > 300) && (rl_x2<=400)){
-			qrl_x=4;
-			}
-		else if((rl_x2 > 400) && (rl_x2<=500)){
-			qrl_x=5;
-			}
-		else if((rl_x2 > 500) && (rl_x2<=600)){
-			qrl_x=6;
-			}
-		else if((rl_x2 > 600) && (rl_x2<=700)){
-			qrl_x=7;
-			}
-		else if((rl_x2 > 700) && (rl_x2<=800)){
-			qrl_x=8;
-			}*/
 		double width = getBattleFieldWidth();
 		return rl_x2/width;
 
 		}
 	private double quantize_positionY(double rl_y2) {
-		// TODO Auto-generated method stub
-
-		/*if((rl_x2 > 0) && (rl_x2<=100)){
-			qrl_x=1;
-			}
-		else if((rl_x2 > 100) && (rl_x2<=200)){
-			qrl_x=2;
-			}
-		else if((rl_x2 > 200) && (rl_x2<=300)){
-			qrl_x=3;
-			}
-		else if((rl_x2 > 300) && (rl_x2<=400)){
-			qrl_x=4;
-			}
-		else if((rl_x2 > 400) && (rl_x2<=500)){
-			qrl_x=5;
-			}
-		else if((rl_x2 > 500) && (rl_x2<=600)){
-			qrl_x=6;
-			}
-		else if((rl_x2 > 600) && (rl_x2<=700)){
-			qrl_x=7;
-			}
-		else if((rl_x2 > 700) && (rl_x2<=800)){
-			qrl_x=8;
-			}*/
 		double height = getBattleFieldHeight();
 		return rl_y2/height;
 
 	}
-
-	public void rl_action(int x){
-		switch(x){
-			case 0:
-				doGun();
-				break;
-			case 1:
-				int moveDirection=+1;  //moves in anticlockwise direction
-				if (getVelocity == 0)
-					moveDirection *= 1;
-
-				// circle our enemy
-				setTurnRight(getBearing + 90);
-				setAhead(150 * moveDirection);
-				break;
-			case 2:
-				int moveDirection1=-1;  //moves in clockwise direction
-				if (getVelocity == 0)
-					moveDirection1 *= 1;
-
-				// circle our enemy
-				setTurnRight(getBearing + 90);
-				setAhead(150 * moveDirection1);
-				break;
-			case 3:
-				//setTurnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
-				setTurnRight(getBearing-25); // and see how much Tracker improves...
-				// (you'll have to make Tracker an AdvancedRobot)
-				setAhead(150);
-				break;
-			case 4:
-				//setTurnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
-				setTurnRight(getBearing-25); // and see how much Tracker improves...
-				// (you'll have to make Tracker an AdvancedRobot)
-				setBack(150);
-				break;
-			case 5:
-				doGunMAX();
-				break;
-		}
-	}//rl_action()
 
 	public static int randInt(int min, int max) {
 
@@ -514,69 +446,70 @@ public class Rl_nn extends AdvancedRobot {
 
 	//wall smoothing (To make sure RL robot does not get stuck in the wall)
 	public void onHitWall(HitWallEvent e){
-		reward-=3.5;
-		double xPos=this.getX();
-		double yPos=this.getY();
-		double width=this.getBattleFieldWidth();
-		double height=this.getBattleFieldHeight();
-		if(yPos<80)
-		{
+		reward-=20;
+//		double xPos=this.getX();
+//		double yPos=this.getY();
+//		double width=this.getBattleFieldWidth();
+//		double height=this.getBattleFieldHeight();
+//		if(yPos<80)
+//		{
+//
+//			turnLeft(getHeading() % 90);
+//
+//			if(getHeading()==0){turnLeft(0);}
+//			if(getHeading()==90){turnLeft(90);}
+//			if(getHeading()==180){turnLeft(180);}
+//			if(getHeading()==270){turnRight(90);}
+//			ahead(150);
+//
+//			if ((this.getHeading()<180)&&(this.getHeading()>90))
+//			{
+//				this.setTurnLeft(90);
+//			}
+//			else if((this.getHeading()<270)&&(this.getHeading()>180))
+//			{
+//				this.setTurnRight(90);
+//			}
+//		}
+//
+//		else if(yPos>height-80){ //to close to the top
+//
+//			if((this.getHeading()<90)&&(this.getHeading()>0)){this.setTurnRight(90);}
+//			else if((this.getHeading()<360)&&(this.getHeading()>270)){this.setTurnLeft(90);}
+//			turnLeft(getHeading() % 90);
+//			if(getHeading()==0){turnRight(180);}
+//			if(getHeading()==90){turnRight(90);}
+//			if(getHeading()==180){turnLeft(0);}
+//			if(getHeading()==270){turnLeft(90);}
+//			ahead(150);
+//
+//		}
+//		else if(xPos<80){
+//			turnLeft(getHeading() % 90);
+//			if(getHeading()==0){turnRight(90);}
+//			if(getHeading()==90){turnLeft(0);}
+//			if(getHeading()==180){turnLeft(90);}
+//			if(getHeading()==270){turnRight(180);}
+//			ahead(150);
+//		}
+//		else if(xPos>width-80) {
+//			turnLeft(getHeading() % 90);
+//			if (getHeading() == 0) {
+//				turnLeft(90);
+//			}
+//			if (getHeading() == 90) {
+//				turnLeft(180);
+//			}
+//			if (getHeading() == 180) {
+//				turnRight(90);
+//			}
+//			if (getHeading() == 270) {
+//				turnRight(0);
+//			}
+//			ahead(150);
+//		}
 
-			turnLeft(getHeading() % 90);
-
-			if(getHeading()==0){turnLeft(0);}
-			if(getHeading()==90){turnLeft(90);}
-			if(getHeading()==180){turnLeft(180);}
-			if(getHeading()==270){turnRight(90);}
-			ahead(150);
-
-			if ((this.getHeading()<180)&&(this.getHeading()>90))
-			{
-				this.setTurnLeft(90);
-			}
-			else if((this.getHeading()<270)&&(this.getHeading()>180))
-			{
-				this.setTurnRight(90);
-			}
-		}
-
-		else if(yPos>height-80){ //to close to the top
-
-			if((this.getHeading()<90)&&(this.getHeading()>0)){this.setTurnRight(90);}
-			else if((this.getHeading()<360)&&(this.getHeading()>270)){this.setTurnLeft(90);}
-			turnLeft(getHeading() % 90);
-			if(getHeading()==0){turnRight(180);}
-			if(getHeading()==90){turnRight(90);}
-			if(getHeading()==180){turnLeft(0);}
-			if(getHeading()==270){turnLeft(90);}
-			ahead(150);
-
-		}
-		else if(xPos<80){
-			turnLeft(getHeading() % 90);
-			if(getHeading()==0){turnRight(90);}
-			if(getHeading()==90){turnLeft(0);}
-			if(getHeading()==180){turnLeft(90);}
-			if(getHeading()==270){turnRight(180);}
-			ahead(150);
-		}
-		else if(xPos>width-80) {
-			turnLeft(getHeading() % 90);
-			if (getHeading() == 0) {
-				turnLeft(90);
-			}
-			if (getHeading() == 90) {
-				turnLeft(180);
-			}
-			if (getHeading() == 180) {
-				turnRight(90);
-			}
-			if (getHeading() == 270) {
-				turnRight(0);
-			}
-			ahead(150);
-		}
-
+//
 	}
 
 	public NNRobot[] initializeRobots(int numberRobots){
@@ -780,6 +713,7 @@ public class Rl_nn extends AdvancedRobot {
 		}else{
 			nextGeneration[0]= parents[1];
 		}
+
         nextGeneration[1] = parents[1];
         int crossoverNumber = populationSize - parents.length + 2;
 
@@ -800,7 +734,6 @@ public class Rl_nn extends AdvancedRobot {
 		}
         while(i < nextGeneration.length - 1)
         {
-
                 NNRobot[] children;
                 int random1 = ThreadLocalRandom.current().nextInt(0, parents.length);
                 int random2 = ThreadLocalRandom.current().nextInt(0, parents.length);
@@ -814,7 +747,11 @@ public class Rl_nn extends AdvancedRobot {
         return nextGeneration;
     }
 
-
-
+	public void saveReward(){
+		currentRobot.set_fitness((float)reward);
+		currentRobot.saveRobotFitness();
+		currentRobot.set_win(win);
+		currentRobot.saveRobotWins();
+	}
 
 }//Rl_nn class
