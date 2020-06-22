@@ -1,5 +1,8 @@
+import random
+import subprocess
+import os, sys
 robocodePath = 'D:/FHTech/Sem2/ARL/Robocode/INSTALL/'
-dataPath = 'D:/FHTech/Sem2/ARL/Repo/RobocodeDeepQLearning/out/production/RobocodeDeepQLearning/ARL/Rl_nn.data/'
+dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning/ARL/Rl_nn.data/'
 battlePath = 'battles/' #path startign at the robocode directory
 battleFileName = 'NNTrain.battle'
 resultFileName = "result.txt"
@@ -76,7 +79,6 @@ def loadHyperparams(filename):
     with open(dataPath + filename) as f:
         return [float(x) for x in f]
 
-import random
 def generateWeights(inputNeurons, hiddenLayerNeurons, outputNeurons, weights_hidden=None, weights_output=None):
     # Generate random weights_hidden array with Normal distribution
     for i in range(populationSize):
@@ -116,14 +118,15 @@ def calculateFitness(filename):
         temp = read_data[0]
         read_data[0] = read_data[1]
         read_data[1] = temp
+
     #strip
     read_data[0] = read_data[0].split("\t")[1].split(' ')[0]
     read_data[1] = read_data[1].split("\t")[1].split(' ')[0]
 
+    #fitness
     fitness = int(read_data[0])/(int(read_data[0]) + int(read_data[1]))
     return fitness
 
-import subprocess
 def runRoboCode(generations, battlePathAndName, resultPathandName):
     for x in range(generations):
         p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ./' + battlePathAndName + ' -results ' + resultPathandName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
@@ -131,6 +134,6 @@ def runRoboCode(generations, battlePathAndName, resultPathandName):
         print("gen: " + str(x+1) + " of " + str(generations) + " done")
 
 r = Robot(0)
-runRoboCode(1,battlePath + battleFileName, dataPath + str(r.id) + resultFileName)
+#runRoboCode(1,battlePath + battleFileName, dataPath + str(r.id) + resultFileName)
 r.loadFitness()
 r.loadHyperparams()
