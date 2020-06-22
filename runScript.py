@@ -1,5 +1,6 @@
 robocodePath = 'D:/FHTech/Sem2/ARL/Robocode/INSTALL/'
 dataPath = 'D:/FHTech/Sem2/ARL/Repo/RobocodeDeepQLearning/out/production/RobocodeDeepQLearning/ARL/Rl_nn.data/'
+battlePath = './battles/NNTrainCrazy.battle' #path startign at the robocode directory
 inputNeurons = 6
 hiddenLayerNeurons = 10
 outputNeurons = 6
@@ -18,6 +19,11 @@ hyperparamStandardDeviation = 10
 # onDeathReward,
 # onWinReward,
 # hiddenLayerNeurons
+
+class Robot:
+    def __init__(self, id, fitness):
+        self.id = id
+        self.fitness = fitness
 
 def clamp(toClamp, minValue, maxValue):
     return max(min(toClamp, maxValue), minValue)
@@ -38,7 +44,6 @@ def saveWeights(weights, filename):
 def loadWeights(filename):
     with open(filename) as f:
         return [[float(x) for x in line.split("    ")] for line in f]
-
 
 def saveHyperparams(hyperParams, filename):
     f = open(dataPath + filename, "w")
@@ -85,7 +90,11 @@ def loadAllHyperparams():
         hyperParams[i] = loadHyperparams(str(i) + "hyperparams.txt")
     return hyperParams
 
-generateWeights(inputNeurons, hiddenLayerNeurons, outputNeurons)
-generateHyperparams()
-yeet = loadWeights(dataPath + "0weights_hidden.txt")
-print(yeet)
+import subprocess
+def runRoboCode(generations, battlepath):
+    for x in range(generations):
+        p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ' + battlepath + ' -tps 1000000 -nodisplay', cwd = robocodePath)
+        p1.wait()
+        print("gen: " + str(x+1) + " of " + str(generations) + " done")
+
+
