@@ -22,13 +22,13 @@ public class NNRobot {
 
     public NNRobot(int ID, NN neuralNetwork, Rl_nn robotRef){
         this._ID = ID;
-        this._NN = new NN(neuralNetwork.w_hx,neuralNetwork.w_yh);
+        this._NN = new NN(neuralNetwork.w_hx,neuralNetwork.w_yh, robotRef.rho);
         this.robotRef = robotRef;
     }
 
     public NNRobot(NNRobot robot) {
         this._ID = robot.get_ID();
-        this._NN = new NN(robot.get_NN().w_hx,robot.get_NN().w_yh); // TODO: Check if this is pass by value? NO ITS NOT!!
+        this._NN = new NN(robot.get_NN().w_hx,robot.get_NN().w_yh, robotRef.rho); // TODO: Check if this is pass by value? NO ITS NOT!!
         this.robotRef = robot.robotRef;
     }
 
@@ -49,6 +49,13 @@ public class NNRobot {
             e.printStackTrace();
         }
 
+    }
+
+    public void updateWeights(){
+        saveWeights(_NN.w_hx,_ID + "weights_hidden.txt");
+
+        //output weights
+        saveWeights(_NN.w_yh,_ID + "weights_output.txt");
     }
 
     public void saveRobot(){
