@@ -6,10 +6,10 @@ dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning
 battlePath = 'battles/' #path startign at the robocode directory
 battleFileName = 'NNTrain.battle'
 
-inputNeurons = 6
+inputNeurons = 7
 hiddenLayerNeurons = 10
-outputNeurons = 6
-populationSize = 2
+outputNeurons = 1
+populationSize = 10
 randomWeightStandardDeviation = 5
 hyperparamAmount = 10
 hyperparamStandardDeviation = 10
@@ -47,6 +47,8 @@ class Robot:
                 fitness += calculateFitness(file)
                 fileAmount += 1
         self.fitness = fitness/fileAmount
+
+
 
 def clamp(toClamp, minValue, maxValue):
     return max(min(toClamp, maxValue), minValue)
@@ -86,13 +88,14 @@ def loadHyperparams(filename):
     with open(dataPath + filename) as f:
         return [float(x) for x in f]
 
-def generateWeights(inputNeurons, hiddenLayerNeurons, outputNeurons, weights_hidden=None, weights_output=None):
+#
+def generateWeights(inputNeurons, outputNeurons, weights_hidden=None, weights_output=None):
     # Generate random weights_hidden array with Normal distribution
     for i in range(populationSize):
-        weights_hidden = [[random.gauss(0, randomWeightStandardDeviation) for k in range(inputNeurons + 1)] for j in range(hiddenLayerNeurons)]
+        weights_hidden = [[random.gauss(0, randomWeightStandardDeviation) for k in range(inputNeurons + 1)] for j in range(int(robots[i].hyperparams[9]))]
         saveWeights(weights_hidden, str(i) + "weights_hidden.txt")
 
-        weights_output = [[random.gauss(0, randomWeightStandardDeviation) for k in range(hiddenLayerNeurons + 1)] for j in range(outputNeurons)]
+        weights_output = [[random.gauss(0, randomWeightStandardDeviation) for k in range(int(robots[i].hyperparams[9]) + 1)] for j in range(outputNeurons)]
         saveWeights(weights_output, str(i) + "weights_output.txt")
 
 def generateHyperparams():
@@ -140,7 +143,10 @@ def runRoboCode(generations, battlePathAndName, resultPathandName):
         p1.wait()
         print("gen: " + str(x+1) + " of " + str(generations) + " done")
 
-r = Robot(0)
+
+robots = [Robot(0)] * populationSize
+
+#r = Robot(0)
 #runRoboCode(1,battlePath + battleFileName, dataPath + str(r.id) + resultFileName)
-r.loadFitness()
-r.loadHyperparams()
+#r.loadFitness()
+#r.loadHyperparams()
