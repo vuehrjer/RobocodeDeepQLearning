@@ -1,6 +1,8 @@
 import random
 import subprocess
 import os, sys
+import numpy as np
+from copy import deepcopy
 robocodePath = 'D:/FHTech/Sem2/ARL/Robocode/INSTALL/'
 dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning/ARL/Rl_nn.data/'
 battlePath = 'battles/' #path startign at the robocode directory
@@ -144,9 +146,123 @@ def runRoboCode(generations, battlePathAndName, resultPathandName):
         print("gen: " + str(x+1) + " of " + str(generations) + " done")
 
 
+def selectParents(parents):
+    out_amount = int(len(parents) * topParentPercent)
+    parents.sort(key = lambda x: x.fitness, reverse = True)
+
+    #Fill best_parents array with the best robots
+    best_parents = []
+    for i in range(out_amount):
+        best_parents.append(parents[i])
+
+
+    #Get robot with biggest diversity to best robot
+    best_diversity_index = 1
+    best_diversity = 0
+
+    i = 1
+    while i < len(best_parents):
+        total_diversity = 0
+
+        j = 0
+        while j < len(parents[0].hyperparams):
+            diversity = pow((best_parents[0].hyperparams[j] - best_parents[i].hyperparams[j]), 2)
+
+            total_diversity += diversity
+            j += 1
+
+
+        if total_diversity >=  best_diversity:
+
+            best_diversity_index = i
+            best_diversity = total_diversity
+
+        i += 1
+
+    #Put robot with biggest diversity from best robot to the first position of the output array
+    output_array = [None] * out_amount
+    output_array[0] = best_parents[best_diversity_index]
+
+    best_parents_index = 0
+    j = 1
+    while j < out_amount:
+
+        if j == (best_diversity_index + 1):
+            best_parents_index += 1
+
+        output_array[j] = best_parents[best_parents_index]
+        best_parents_index += 1
+
+        j += 1
+
+    return output_array
+
+
+def mutate(parent):
+    child = deepcopy(parent)
+    for i in range(len(child.hyperparams)):
+        rand = random.random()
+        if(rand < mutationChance):
+            child.hyperparams[i] = np.random.normal(loc=child.hyperparams[i], scale=abs(child.hyperparams[i]/2))
+    child.hyperparams[len(child.hyperparams) - 1] = int(child.hyperparams[len(child.hyperparams) - 1])
+    return child
+
+def crossover(father, mother):
+    son = deepcopy(father)
+    daughter = deepcopy(mother)
+    for i in range(len(father.hyperparams)):
+        rand = random.random()
+        if(rand < 0.5):
+            son.hyperparams[i] = father.hyperparams[i]
+            daughter.hyperparams[i] = mother.hyperparams[i]
+        else:
+            son.hyperparams[i] = mother.hyperparams[i]
+            daughter.hyperparams[i] = father.hyperparams[i]
+
+    children = [son, daughter]
+    print(father.hyperparams)
+    print(mother.hyperparams)
+    print(son.hyperparams)
+    print(daughter.hyperparams)
+    return children
+
+def makeEvolution(parents):
+    selectedParents = selectParents(parents)
+    nextGen = [0] * populationSize
+    nextGen[0] = selectedParents[0]
+    nextGen[1] = selectedParents[1]
+
+    crossover_number = populationSize - len(parents) + 2
+
+    if crossover_number % 2 == 0:
+        mutationNumber = len(selectedParents)
+    else:
+        mutationNumber = len(selectedParents) - 1
+
+    i = 2
+
+    while i < mutationNumber:
+        nextGen[i] = mutate(selectedParents[i])
+        i += 1
+
+    while i < populationSize - 1:
+        rand1 = int(random.random() * populationSize)
+        rand2 = int(random.random() * populationSize)
+        parent1 = parents[rand1]
+        parent2 = parents[rand2]
+
+        children = crossover(parent1, parent2)
+        nextGen[i] = children[0]
+        nextGen[i+1] = children[1]
+        i += 2
+
+    return nextGen
+
 robots = [Robot(0)] * populationSize
 
-#r = Robot(0)
-#runRoboCode(1,battlePath + battleFileName, dataPath + str(r.id) + resultFileName)
-#r.loadFitness()
-#r.loadHyperparams()
+
+def init():
+    print()
+
+def run():
+    print()
