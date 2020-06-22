@@ -13,15 +13,16 @@ import java.util.concurrent.ThreadLocalRandom;
 
 
 public class Rl_nn extends AdvancedRobot {
-	final double alpha = 0.1;
+	final double alpha = 0.7;
     final double gamma = 0.9;
-    double epsilon = 0.6;
+    double epsilon = 1.0;
     double distance=0;
+    double rho = 0.001;
     double mutationChance = 0.1;
     int mutationNumber = 12;
     //declaring actions
     int[] action=new int[4];
-    int[] total_actions=new int[4];
+    int[] total_actions=new int[6];
     //quantized parameters
     double qrl_x=0;
     double qrl_y=0;
@@ -82,9 +83,10 @@ public class Rl_nn extends AdvancedRobot {
 	static int iter=0;
 	double dummy=0;
 
-	static int inputNeurons = 6;
+
+	static int inputNeurons = 7;
 	static int hiddenLayerNeurons = 10;
-	static int outputNeurons = 6;
+	static int outputNeurons = 1;
     double[] inputValuesNew = new double[inputNeurons + 1];
 	double[] inputValues = new double[inputNeurons + 1];
 	double[] inputValues_next = new double[inputNeurons];
@@ -99,9 +101,10 @@ public class Rl_nn extends AdvancedRobot {
 
 	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
-
+	int actionIndex;
 	int roundsPerRobot = 50;
-	boolean generateWeightFiles = false;
+
+	boolean generateWeightFiles = true;
 	boolean onlyRunFittestRobot = true;
 	boolean diverseSearch = true;
 	boolean medianFitness = true;
@@ -136,7 +139,7 @@ public class Rl_nn extends AdvancedRobot {
 		reward=0;
 
 		//initialize
-        NN NN_obj=new NN(w_hx, w_yh);
+        NN NN_obj=new NN(w_hx, w_yh, rho);
         if (onlyRunFittestRobot){
 			currentRobotId = 1;
 		} else{
@@ -168,10 +171,8 @@ public class Rl_nn extends AdvancedRobot {
 
 		while(true){
 
-			currentRobot.loadRobotWeights();
-
-			q_present_double = new double[outputNeurons];
-			//q_next_double = new double[1];
+			q_present_double = new double[total_actions.length];
+			q_next_double = new double[total_actions.length];
 			//setTurnGunRight(360);
 			//random_action=randInt(1,total_actions.length);
 			//state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
@@ -179,34 +180,40 @@ public class Rl_nn extends AdvancedRobot {
 			setTurnRadarRight(360);
 			qrl_x=quantize_positionX(getX()); //your x position -state number 1
 			qrl_y=quantize_positionY(getY()); //your y position -state number 2
-			inputValues[0]=qrl_x;
-			inputValues[1]=qrl_y;
-			inputValues[2]=deltaX;
-			inputValues[3]=deltaY;
-			inputValues[4]= getEnergy();
-			inputValues[5]= enemyEnergy;
-			inputValues[6]=1;
+			double q_deltaX = deltaX/getBattleFieldWidth();
+			double q_deltaY = deltaY/getBattleFieldHeight();
+			double myEnergy = getEnergy()/100;
+			enemyEnergy = enemyEnergy/100;
 
-			q_present_double=currentRobot.get_NN().NNfeedforward(inputValues);
+			for(int i = 0; i < total_actions.length; i++)
+			{
+				inputValues[0] = qrl_x;
+				inputValues[1] = qrl_y;
+				inputValues[2] = q_deltaX;
+				inputValues[3] = q_deltaY;
+				inputValues[4] = myEnergy;
+				inputValues[5] = enemyEnergy;
+				inputValues[6] = i;
+				inputValues[7] = 1;
 
+				q_present_double[i] = currentRobot.get_NN().NNfeedforward(inputValues);
+			}
 			reward = 0;
 
-			int actionIndex = getMax(q_present_double);
+			actionIndex = getMax(q_present_double);
 			lastAction = actionIndex;
 			current_q_value = q_present_double[actionIndex];
 
-			dummy = ThreadLocalRandom.current().nextDouble(0, 1);
-
+			Random rand = new Random();
+            dummy = rand.nextFloat();
 
 			if(dummy < epsilon) {
 				rl_action(actionIndex);
 			}
 			else{
-				random_action = ThreadLocalRandom.current().nextInt(outputNeurons);
+				random_action = ThreadLocalRandom.current().nextInt(total_actions.length);
 				rl_action(random_action);
 			}
-
-
 
 /*			for (int i = 0; i < q_present_double.length; i++) {
 				if (q_present_double[i] > (q_present_double[actionIndex] / 1.5) && i != actionIndex){
@@ -215,28 +222,31 @@ public class Rl_nn extends AdvancedRobot {
 			}
 
  */
-
 			execute();
 
             qrl_x=quantize_positionX(getX()); //your x position -state number 1
             qrl_y=quantize_positionY(getY()); //your y position -state number 2
-            inputValuesNew[0]=qrl_x;
-            inputValuesNew[1]=qrl_y;
-            inputValuesNew[2]=deltaX;
-            inputValuesNew[3]=deltaY;
-            inputValuesNew[4]= getEnergy();
-            inputValuesNew[5]= enemyEnergy;
-            inputValuesNew[6]=1;
 
-            q_next_double=currentRobot.get_NN().NNfeedforward(inputValuesNew);
+
+			for(int i = 0; i < total_actions.length; i++)
+			{
+				inputValuesNew[0] = qrl_x;
+				inputValuesNew[1] = qrl_y;
+				inputValuesNew[2] = q_deltaX;
+				inputValuesNew[3] = q_deltaY;
+				inputValuesNew[4] = getEnergy();
+				inputValuesNew[5] = enemyEnergy;
+				inputValuesNew[6] = i;
+				inputValuesNew[7] = 1;
+
+				q_next_double[i] = currentRobot.get_NN().NNfeedforward(inputValuesNew);
+			}
             next_q_value = q_next_double[getMax(q_next_double)];
+			current_q_value = current_q_value + alpha * (reward + gamma * next_q_value - current_q_value);
 
-            for(int i = 0; i < outputNeurons; i++) {
-                q_present_double[i] = q_present_double[i] + alpha * (reward + gamma * q_next_double[i] - q_present_double[i]);
-            }
-            currentRobot.get_NN().NNtrain(inputValues, q_present_double);
+            currentRobot.get_NN().NNtrain(inputValues, current_q_value);
 
-            currentRobot.updateWeights();
+
 
 		}//while loop ends
 	}//run function ends
@@ -246,6 +256,7 @@ public class Rl_nn extends AdvancedRobot {
 		//currentRobot.saveRobotFitness();
 		currentRobot.set_win(win);
 		currentRobot.saveRobotWins();
+		currentRobot.updateWeights();
 	}
 
 
@@ -261,15 +272,18 @@ public class Rl_nn extends AdvancedRobot {
 	}
 
 	private void trackAndShoot(double power) {
-		if (fireTime == getTime() && getGunTurnRemaining() == 0) {
-			setFire(power);
-		}
+		//setTurnRight(0);
+		//setAhead(0);
 		double bulletSpeed = 20 - power * 3;
 		long time = (long) (distance / bulletSpeed);
 		double futureX = getX() - deltaX + Math.sin(enemyHeading) * velocity * time;
 		double futureY = getY() - deltaY + Math.cos(enemyHeading) * velocity * time;
 		double absDeg = absoluteBearing(getX(), getY(), futureX, futureY);
 		setTurnGunRight(normalizeBearing(absDeg - getGunHeading()));
+		if (fireTime == getTime() && Math.abs(getGunTurnRemaining()) == 0) {
+			setTurnGunRight(0);
+			setFire(power);
+		}
 		fireTime = getTime() + 1;
 	}
 
@@ -359,14 +373,14 @@ public class Rl_nn extends AdvancedRobot {
 
 	public void onHitRobot(HitRobotEvent event){reward-=5;} //our robot hit by enemy robot
 	public void onBulletHit(BulletHitEvent event){		;
-		reward+=15 * event.getBullet().getPower();
+		reward+=2 * event.getBullet().getPower();
 	} //one of our bullet hits enemy robot
-	public void onHitByBullet(HitByBulletEvent event){reward-=25;} //when our robot is hit by a bullet
+	public void onHitByBullet(HitByBulletEvent event){reward-=55;} //when our robot is hit by a bullet
 
 	@Override
 	public void onWin(WinEvent event) {
 		super.onWin(event);
-		reward += 15;
+		reward += 100 * getEnergy();
 		win = 1;
 		saveReward();
 
@@ -375,13 +389,13 @@ public class Rl_nn extends AdvancedRobot {
 	@Override
 	public void onRobotDeath(RobotDeathEvent event) {
 		super.onRobotDeath(event);
-		//reward += 10;
+		reward += 20;
 	}
 
 	@Override
 	public void onDeath(DeathEvent event) {
 		super.onDeath(event);
-		reward -= 50;
+		reward -= 50 * enemyEnergy;
 
 		win = 0;
 		saveReward();
@@ -531,13 +545,13 @@ public class Rl_nn extends AdvancedRobot {
 				break;
 			case 3:
 				//setTurnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
-				setTurnRight(getBearing-25); // and see how much Tracker improves...
+				setTurnRight(getBearing-90); // and see how much Tracker improves...
 				// (you'll have to make Tracker an AdvancedRobot)
 				setAhead(150);
 				break;
 			case 4:
 				//setTurnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
-				setTurnRight(getBearing-25); // and see how much Tracker improves...
+				setTurnRight(getBearing-90); // and see how much Tracker improves...
 				// (you'll have to make Tracker an AdvancedRobot)
 				setBack(150);
 				break;
@@ -664,7 +678,7 @@ public class Rl_nn extends AdvancedRobot {
 					weights_output[j][k] = randomValue;
 				}
 			}
-			NN newNN = new NN(weights_hidden, weights_output);
+			NN newNN = new NN(weights_hidden, weights_output, rho);
 			NNRobot newRobot = new NNRobot(i, newNN, this);
 			newRobot.set_fitness(0);
 			robotArray[i] = newRobot;

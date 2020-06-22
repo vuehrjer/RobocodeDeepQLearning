@@ -8,7 +8,7 @@ import java.util.Scanner;
 public class NN {
 
 
-	double rho=0.00001;
+	double rho;
 	double alpha=0.9;
 	double[][] w_hx;
 	double[][] w_yh;
@@ -24,9 +24,9 @@ public class NN {
 	public NN()
 	{ }
 
-	public NN(double[][] w_hx, double[][] w_yh)
+	public NN(double[][] w_hx, double[][] w_yh, double rho)
 	{
-
+        this.rho = rho;
 		this.inputSize_ = w_hx[0].length - 1;
 		this.hiddenLayerSize_ = w_hx.length;
 		this.outputSize_ = w_yh.length;
@@ -40,11 +40,19 @@ public class NN {
         }
 		prev_delw_y=new double[outputSize_][hiddenLayerSize_+1];
 		prev_delw_h=new double[hiddenLayerSize_][inputSize_ + 1];
-		double beta_2=0;
-		curr_delw_y=0;
 		double[] tj=new double[hiddenLayerSize_+1];
 		ArrayList<Double> error = new ArrayList<Double>();
+		h=new double[hiddenLayerSize_+1];
+		h[hiddenLayerSize_]=1; //hardcoding bias term
 
+	}
+
+	public double NNfeedforward(double[] Input)
+	{
+
+
+		double beta_2=0;
+		curr_delw_y=0;
 
 		for (int i=0;i < hiddenLayerSize_; i++){
 			for (int j=0;j<inputSize_;j++){
@@ -58,60 +66,51 @@ public class NN {
 			}
 		}
 
-		//forward propogation:
-		h=new double[hiddenLayerSize_+1];
-		for (int i=0;i < hiddenLayerSize_+1; i++){
+		for (int i=0;i < hiddenLayerSize_; i++){
 
 			h[i]=0;
 
 		}
 		//hardcoding bias term to 1:
-		h[hiddenLayerSize_]=1;
+
 		double[] y_hat=new double[outputSize_];
 		for (int i=0;i < outputSize_; i++){
 
 		}
-	}
 
-	public double[] NNfeedforward(double[] Input)
-	{
+        for (int i=0;i<hiddenLayerSize_;i++)
+        {
+            double s=0;
+            for(int j=0;j<inputSize_ + 1;j++){
+                s=s+w_hx[i][j]*Input[j];
+            }
+            h[i]=sigmoid(s);
+        }
+        double Output = 0;
+        for(int i=0;i<outputSize_;i++)
+        {
+            double s1=0;
+            for(int j=0;j<hiddenLayerSize_ + 1;j++)
+            {
+                s1=s1+w_yh[i][j]*h[j];
+            }
+            Output = s1;
 
-		for (int i=0;i<hiddenLayerSize_;i++)
-		{
-
-			double s=0;
-			for(int j=0;j<inputSize_;j++){
-				s=s+w_hx[i][j]*Input[j];
-			}
-			h[i]=sigmoid(s);
-		}
-
-		double[] Output = new double[outputSize_];
-		for(int i=0;i<outputSize_;i++)
-		{
-			double s1=0;
-			for(int j=0;j<hiddenLayerSize_ + 1;j++)
-			{
-				s1=s1+w_yh[i][j]*h[j];
-			}
-			Output[i] = s1;
-
-		}
+        }
 		return Output;
 
 	}
 
-	public void NNbackpropagate(double[] Output, double[] Input, double[] Target)
+	public void NNbackpropagate(double Output, double[] Input, double Target)
 	{
-		double[] beta_2 = new double[outputSize_];
+
 		double[] tj = new double[hiddenLayerSize_];
-		for(int i = 0; i < outputSize_; i++) {
-			beta_2[i] = (Target[i] - Output[i]);
-		}
+		double beta_2 = (Target - Output);
+
 			for (int j = 0; j < hiddenLayerSize_ + 1; j++) {
 				for(int i = 0; i < outputSize_; i++)
 				{
-					curr_delw_y = beta_2[i] * h[j];
+					curr_delw_y = beta_2 * h[j];
 					w_yh[i][j] = w_yh[i][j] + rho * curr_delw_y + alpha * prev_delw_y[i][j];
 					prev_delw_y[i][j] = rho * curr_delw_y + alpha * prev_delw_y[i][j];
 				}
@@ -125,24 +124,23 @@ public class NN {
 			}
 
 
-			double[][] delw_h = new double[hiddenLayerSize_][inputSize_ + 1];
+        double[][] delw_h=new double[hiddenLayerSize_][inputSize_ + 1];
 
-			for (int j = 0; j < hiddenLayerSize_; j++) {
-				for (int k = 0; k < inputSize_ + 1; k++) {
-					for(int i=0; i < outputSize_; i++)
-					delw_h[j][k] = beta_2[i] * sigmoid(tj[j]) * (1 - sigmoid(tj[j])) * Input[k];
-					w_hx[j][k] = w_hx[j][k] + rho * delw_h[j][k] + alpha * prev_delw_h[j][k];
-					prev_delw_h[j][k] = rho * delw_h[j][k] + alpha * prev_delw_h[j][k];
-				}
-			}
+        for (int i=0;i<hiddenLayerSize_;i++){
+            for (int j=0;j<inputSize_ + 1;j++){
+                delw_h[i][j]=beta_2*sigmoid(tj[i])*(1-sigmoid(tj[i]))*Input[j];
+                w_hx[i][j]=w_hx[i][j]+rho*delw_h[i][j]+alpha*prev_delw_h[i][j];
+                prev_delw_h[i][j]=rho*delw_h[i][j]+alpha*prev_delw_h[i][j];
+            }
+        }
 		}
 
 
 
 
-	public void NNtrain(double[] Input, double[] Target)
+	public void NNtrain(double[] Input, double Target)
 	{
-		double[] Output;
+		double Output;
 		Output = NNfeedforward(Input);
 		NNbackpropagate(Output, Input, Target);
 	}
