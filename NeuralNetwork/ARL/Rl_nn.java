@@ -13,11 +13,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 
 public class Rl_nn extends AdvancedRobot {
-	final double alpha = 0.7;
-    final double gamma = 0.9;
     double epsilon = 1.0;
     double distance=0;
-    double rho = 0.001;
     double mutationChance = 0.1;
     int mutationNumber = 12;
     //declaring actions
@@ -40,23 +37,8 @@ public class Rl_nn extends AdvancedRobot {
     String state_action_combi=null;
     String state_action_combi_greedy=null;
     double robot_energy=0;
-    double hitwallReward;
-    double hitByBulletReward;
-    double hitBulletReward;
-    double onWinReward;
-    double onDeathReward;
-    double hitRobotReward;
-    double[] hyperparams = {
-            alpha,
-            gamma,
-            hitBulletReward,
-            hitByBulletReward,
-            hitRobotReward,
-            hitwallReward,
-            onDeathReward,
-            onWinReward,
-            hiddenLayerNeurons
-    };
+
+
 
     double[] q_present_double;
     double current_q_value;
@@ -84,32 +66,56 @@ public class Rl_nn extends AdvancedRobot {
 	double dummy=0;
 
 
+	static double alpha; //0.7
+	static double gamma; //0.9
+	static double rho; //0.001
+	static double hitBulletReward;
+	static double hitByBulletReward;
+	static double hitwallReward;
+	static double onDeathReward;
+	static double onWinReward;
+	static double hitRobotReward;
+
+
 	static int inputNeurons = 7;
-	static int hiddenLayerNeurons = 10;
+	static int hiddenLayerNeurons; //10
 	static int outputNeurons = 1;
+
+	static double[] hyperparams = {
+			0, //alpha,
+			0, //gamma,
+			0, //rho,
+			0, //hitBulletReward,
+			0, //hitByBulletReward,
+			0, //hitRobotReward,
+			0, //hitwallReward,
+			0, //onDeathReward,
+			0, //onWinReward,
+			0, //hiddenLayerNeurons,
+	};
+
+
     double[] inputValuesNew = new double[inputNeurons + 1];
 	double[] inputValues = new double[inputNeurons + 1];
 	double[] inputValues_next = new double[inputNeurons];
 	double[] targetValues = new double[outputNeurons];
 
-	static double[][] w_hx = new double[hiddenLayerNeurons][inputNeurons + 1];
-	String[][] w_hxs = new String[hiddenLayerNeurons][inputNeurons + 1];
+	static double[][] w_hx;
+	String[][] w_hxs;
 
-	//hidden layer output: amount of neurons + 1 bias
-	static double[][] w_yh = new double[outputNeurons][hiddenLayerNeurons + 1];
-	String[][] w_yhs = new String[outputNeurons][hiddenLayerNeurons + 1];
+	static double[][] w_yh;
+	String[][] w_yhs;
 
 	float topParentPercent = 0.9f; //0-1 : indicates how many percent of the parents will be selected for the next generation
 	float randomWeightStandardDeviation = 5;
 	int actionIndex;
 	int roundsPerRobot = 50;
 
-	boolean generateWeightFiles = true;
-	boolean onlyRunFittestRobot = true;
+	boolean onlyRunFittestRobot = false;
 	boolean diverseSearch = true;
 	boolean medianFitness = true;
 	//
-	int currentRobotId = 0;
+	static int currentRobotId = -1;
 
 	NNRobot currentRobot;
 	private double enemyHeading = 0;
@@ -122,49 +128,49 @@ public class Rl_nn extends AdvancedRobot {
 	private double Y = 0;
 	private int lastAction = -1;
 
+
 	public void run(){
 
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
 		setBodyColor(Color.PINK);
 
-		if(generateWeightFiles){
-			NNRobot[] initR = initializeRobots(populationSize);
-			for (NNRobot r: initR){
-				r.saveRobot();
+		if (currentRobotId == -1){
+			if (onlyRunFittestRobot){
+				currentRobotId = 1;
+			} else{
+				//load config
+				currentRobotId = selectNextRobotID("config.txt");
 			}
-			resetConfig("config.txt");
-			return;
 		}
+
+		if(hyperparams[9] == 0){
+
+			loadHyperparameters(currentRobotId + "hyperparams.txt");
+			alpha = hyperparams[0];
+			gamma = hyperparams[1];
+			rho = hyperparams[2];
+			hitBulletReward = hyperparams[3];
+			hitByBulletReward = hyperparams[4];
+			hitwallReward = hyperparams[5];
+			onDeathReward = hyperparams[6];
+			onWinReward = hyperparams[7];
+			hitRobotReward = hyperparams[8];
+			hiddenLayerNeurons = (int)hyperparams[9];
+		}
+
+		w_hx = new double[hiddenLayerNeurons][inputNeurons + 1];
+		w_hxs = new String[hiddenLayerNeurons][inputNeurons + 1];
+
+		//hidden layer output: amount of neurons + 1 bias
+		w_yh = new double[outputNeurons][hiddenLayerNeurons + 1];
+		w_yhs = new String[outputNeurons][hiddenLayerNeurons + 1];
+
 
 		reward=0;
 
 		//initialize
         NN NN_obj=new NN(w_hx, w_yh, rho);
-        if (onlyRunFittestRobot){
-			currentRobotId = 1;
-		} else{
-			//load config
-			currentRobotId = selectNextRobotID("config.txt");
-		}
 
-		//if done with generation -> create new generation
-		if (currentRobotId >= populationSize){
-			NNRobot[] parents = new NNRobot[populationSize];
-			for (int i = 0; i < populationSize; i++) {
-				parents[i] = new NNRobot(i, NN_obj, this);
-				parents[i].loadRobot();
-			}
-
-			NNRobot[] children = makeEvolution(parents);
-			for (int i = 0; i < children.length; i++) {
-				children[i].set_ID(i);
-				children[i].saveRobot();
-
-			}
-
-			resetConfig("config.txt");
-			currentRobotId = selectNextRobotID("config.txt");
-		}
 
 		currentRobot = new NNRobot(currentRobotId, NN_obj,this);
 		currentRobot.loadRobotWeights();
@@ -259,6 +265,25 @@ public class Rl_nn extends AdvancedRobot {
 		currentRobot.updateWeights();
 	}
 
+	private void loadHyperparameters(String fileName) {
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader(getDataFile(fileName)));
+
+			try{
+				for(int i = 0; i < hyperparams.length; ++i){
+					String line = reader.readLine();
+					hyperparams[i] = Double.parseDouble(line);
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}finally {
+				reader.close();
+			}
+		} catch (IOException e){
+			e.printStackTrace();
+		}
+
+	}
 
 	public void doGun()
 	{
@@ -333,25 +358,14 @@ public class Rl_nn extends AdvancedRobot {
 
 	public int selectNextRobotID(String robotAndRoundFile) {
 		int id = -1;
-		int roundNum;
 		File file = getDataFile(robotAndRoundFile);
 		try {
 			BufferedReader reader = new BufferedReader(new FileReader(file));
 			id = Integer.parseInt(reader.readLine());
-			roundNum = Integer.parseInt(reader.readLine());
 			reader.close();
-
-
-			if (roundNum != 0 && roundNum % roundsPerRobot == 0) {
-				id++;
-				roundNum = 1;
-			}else{
-				++roundNum;
-			}
-
+			id++;
 			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), false);
 			writer.write(id + "\n");
-			writer.write(roundNum + "\n");
 			writer.close();
 		} catch (IOException e) {
 			e.printStackTrace();
