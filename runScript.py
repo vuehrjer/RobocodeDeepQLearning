@@ -37,6 +37,8 @@ class Robot:
     def saveHyperparams(self):
         saveHyperparams(self.hyperparams, str(self.id) + 'hyperparams.txt')
 
+    #checks all files that start with "id + 'result'",
+    # e.g following files would be read if id = 0 ("0result", "0result_corners.txt", "0resultA.txt")
     def loadFitness(self):
         fitness = 0
         fileAmount = 0
