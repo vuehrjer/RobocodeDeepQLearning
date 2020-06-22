@@ -5,7 +5,6 @@ robocodePath = 'D:/FHTech/Sem2/ARL/Robocode/INSTALL/'
 dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning/ARL/Rl_nn.data/'
 battlePath = 'battles/' #path startign at the robocode directory
 battleFileName = 'NNTrain.battle'
-resultFileName = "result.txt"
 
 inputNeurons = 6
 hiddenLayerNeurons = 10
@@ -39,7 +38,13 @@ class Robot:
         saveHyperparams(self.hyperparams, str(self.id) + 'hyperparams.txt')
 
     def loadFitness(self):
-        self.fitness = calculateFitness(str(self.id) + resultFileName)
+        fitness = 0
+        fileAmount = 0
+        for file in os.listdir(dataPath):
+            if file.startswith(str(self.id) + 'result'):
+                fitness += calculateFitness(file)
+                fileAmount += 1
+        self.fitness = fitness/fileAmount
 
 def clamp(toClamp, minValue, maxValue):
     return max(min(toClamp, maxValue), minValue)
