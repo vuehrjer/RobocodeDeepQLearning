@@ -13,7 +13,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 
 public class Rl_nn extends AdvancedRobot {
-    double epsilon = 1.0;
+
     double distance=0;
     double mutationChance = 0.1;
     int mutationNumber = 12;
@@ -69,6 +69,7 @@ public class Rl_nn extends AdvancedRobot {
 	static double alpha; //0.7
 	static double gamma; //0.9
 	static double rho; //0.001
+	static double epsilon;
 	static double hitBulletReward;
 	static double hitByBulletReward;
 	static double hitwallReward;
@@ -85,6 +86,7 @@ public class Rl_nn extends AdvancedRobot {
 			0, //alpha,
 			0, //gamma,
 			0, //rho,
+			0, //epsilon
 			0, //hitBulletReward,
 			0, //hitByBulletReward,
 			0, //hitRobotReward,
@@ -143,19 +145,20 @@ public class Rl_nn extends AdvancedRobot {
 			}
 		}
 
-		if(hyperparams[9] == 0){
+		if(hyperparams[10] == 0){
 
 			loadHyperparameters(currentRobotId + "hyperparams.txt");
 			alpha = hyperparams[0];
 			gamma = hyperparams[1];
 			rho = hyperparams[2];
-			hitBulletReward = hyperparams[3];
-			hitByBulletReward = hyperparams[4];
-			hitwallReward = hyperparams[5];
-			onDeathReward = hyperparams[6];
-			onWinReward = hyperparams[7];
-			hitRobotReward = hyperparams[8];
-			hiddenLayerNeurons = (int)hyperparams[9];
+			epsilon = hyperparams[3];
+			hitBulletReward = hyperparams[4];
+			hitByBulletReward = hyperparams[5];
+			hitwallReward = hyperparams[6];
+			onDeathReward = hyperparams[7];
+			onWinReward = hyperparams[8];
+			hitRobotReward = hyperparams[9];
+			hiddenLayerNeurons = (int)hyperparams[10];
 		}
 
 		w_hx = new double[hiddenLayerNeurons][inputNeurons + 1];
@@ -168,7 +171,6 @@ public class Rl_nn extends AdvancedRobot {
 
 		reward=0;
 
-		//initialize
         NN NN_obj=new NN(w_hx, w_yh, rho);
 
 
@@ -179,9 +181,7 @@ public class Rl_nn extends AdvancedRobot {
 
 			q_present_double = new double[total_actions.length];
 			q_next_double = new double[total_actions.length];
-			//setTurnGunRight(360);
-			//random_action=randInt(1,total_actions.length);
-			//state_action_combi=qrl_x+""+qrl_y+""+qdistancetoenemy+""+q_absbearing+""+random_action;
+
 
 			setTurnRadarRight(360);
 			qrl_x=quantize_positionX(getX()); //your x position -state number 1
@@ -221,13 +221,6 @@ public class Rl_nn extends AdvancedRobot {
 				rl_action(random_action);
 			}
 
-/*			for (int i = 0; i < q_present_double.length; i++) {
-				if (q_present_double[i] > (q_present_double[actionIndex] / 1.5) && i != actionIndex){
-					rl_action(i);
-				}
-			}
-
- */
 			execute();
 
             qrl_x=quantize_positionX(getX()); //your x position -state number 1
@@ -240,7 +233,7 @@ public class Rl_nn extends AdvancedRobot {
 				inputValuesNew[1] = qrl_y;
 				inputValuesNew[2] = q_deltaX;
 				inputValuesNew[3] = q_deltaY;
-				inputValuesNew[4] = getEnergy();
+				inputValuesNew[4] = myEnergy;
 				inputValuesNew[5] = enemyEnergy;
 				inputValuesNew[6] = i;
 				inputValuesNew[7] = 1;
@@ -251,11 +244,8 @@ public class Rl_nn extends AdvancedRobot {
 			current_q_value = current_q_value + alpha * (reward + gamma * next_q_value - current_q_value);
 
             currentRobot.get_NN().NNtrain(inputValues, current_q_value);
-
-
-
-		}//while loop ends
-	}//run function ends
+		}
+	}
 
 	public void saveReward(){
 		//currentRobot.set_fitness((float)reward);
@@ -385,31 +375,24 @@ public class Rl_nn extends AdvancedRobot {
 		}
 	}
 
-	public void onHitRobot(HitRobotEvent event){reward-=5;} //our robot hit by enemy robot
+	public void onHitRobot(HitRobotEvent event){reward+=hitRobotReward;} //our robot hit by enemy robot
 	public void onBulletHit(BulletHitEvent event){		;
-		reward+=2 * event.getBullet().getPower();
+		reward+=hitBulletReward;
 	} //one of our bullet hits enemy robot
-	public void onHitByBullet(HitByBulletEvent event){reward-=55;} //when our robot is hit by a bullet
+	public void onHitByBullet(HitByBulletEvent event){reward+=hitByBulletReward;} //when our robot is hit by a bullet
 
 	@Override
 	public void onWin(WinEvent event) {
 		super.onWin(event);
-		reward += 100 * getEnergy();
+		reward += onWinReward;
 		win = 1;
 		saveReward();
-
-	}
-
-	@Override
-	public void onRobotDeath(RobotDeathEvent event) {
-		super.onRobotDeath(event);
-		reward += 20;
 	}
 
 	@Override
 	public void onDeath(DeathEvent event) {
 		super.onDeath(event);
-		reward -= 50 * enemyEnergy;
+		reward += onDeathReward;
 
 		win = 0;
 		saveReward();
@@ -602,7 +585,7 @@ public class Rl_nn extends AdvancedRobot {
 
 	//wall smoothing (To make sure RL robot does not get stuck in the wall)
 	public void onHitWall(HitWallEvent e){
-		reward-=3.5;
+		reward+=hitwallReward;
 		double xPos=this.getX();
 		double yPos=this.getY();
 		double width=this.getBattleFieldWidth();
