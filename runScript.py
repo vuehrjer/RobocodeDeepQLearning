@@ -3,10 +3,14 @@ import subprocess
 import os, sys
 import numpy as np
 from copy import deepcopy
+import fileinput
 robocodePath = 'D:/FHTech/Sem2/ARL/Robocode/INSTALL/'
 dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning/ARL/Rl_nn.data/'
 battleFileName = 'battles/NNTrain.battle'
 
+
+topParentPercent = 0.8
+mutationChance = 0.8
 inputNeurons = 7
 hiddenLayerNeurons = 10
 outputNeurons = 1
@@ -74,17 +78,17 @@ def loadWeights(filename):
 
 def saveHyperparams(hyperParams, filename):
     f = open(dataPath + filename, "w+")
-    f.write(str(hyperParams[0]) + "\n")                     # alpha,
-    f.write(str(hyperParams[1]) + "\n")                     # gamma,
-    f.write(str(hyperParams[2]) + "\n")                     # rho,
-    f.write(str(hyperParams[3]) + "\n")                     # epsilon,
+    f.write(str(clamp01(hyperParams[0])) + "\n")            # alpha,
+    f.write(str(clamp01(hyperParams[1])) + "\n")            # gamma,
+    f.write(str(clamp01(hyperParams[2])) + "\n")            # rho,
+    f.write(str(clamp01(hyperParams[3])) + "\n")            # epsilon,
     f.write(str(hyperParams[4]) + "\n")                     # hitBulletReward,
     f.write(str(hyperParams[5]) + "\n")                     # hitByBulletReward,
     f.write(str(hyperParams[6]) + "\n")                     # hitRobotReward,
     f.write(str(hyperParams[7]) + "\n")                     # hitwallReward,
     f.write(str(hyperParams[8]) + "\n")                     # onDeathReward,
     f.write(str(hyperParams[9]) + "\n")                     # onWinReward,
-    f.write(str(hyperParams[10]) + "\n")  # hiddenLayerNeurons
+    f.write(str(int(clamp(abs(hyperParams[10]), 2, 100))) + "\n")  # hiddenLayerNeurons
     f.close()
 
 def loadHyperparams(filename):
@@ -148,10 +152,10 @@ def calculateFitness(filename):
 def runRoboCode(generations, battlePathAndName, resultPathandName):
     for x in range(generations):
         if (resultPathandName == ''):
-            p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ./' + battlePathAndName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
+            p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ' + battlePathAndName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
             p1.wait()
         else:
-            p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ./' + battlePathAndName + ' -results ' + resultPathandName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
+            p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ' + battlePathAndName + ' -results ' + resultPathandName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
             p1.wait()
         print("gen: " + str(x+1) + " of " + str(generations) + " done")
 
@@ -268,10 +272,22 @@ def makeEvolution(parents):
 
     return nextGen
 
+def changeEpsilonToOne(id):
+    f = open(dataPath + str(id) + "hyperparams.txt" , "r")
+    list_of_lines = f.readlines()
+    list_of_lines[3] = "1\n"
+    f = open(dataPath + str(id) + "hyperparams.txt", "w")
+    f.writelines(list_of_lines)
+    f.close()
 
 def resetConfig():
     f = open(dataPath + "config.txt","w+")
     f.write("0\n")
+    f.close()
+
+def setConfig(id):
+    f = open(dataPath + "config.txt","w+")
+    f.write( str(id) +  "\n")
     f.close()
 
 def init(populationSize):
@@ -279,17 +295,25 @@ def init(populationSize):
     generateWeights(inputNeurons,outputNeurons)
     resetConfig()
 
-def main(generations):
+robots = [Robot] * populationSize
+for i in range(0,populationSize):
+    robots[i] = Robot(i)
 
+
+def run(generations):
+    global robots
     for r in robots:
         r.loadHyperparams()
 
     for i in range(generations):
-        for j in range(populationSize):
+        for j in range(0,populationSize):
+            #training stage
             runRoboCode(1,robocodePath + battleFileName, '')
-            robots[j].hyperparams[3] = 1
-            robots[j].saveHyperparams()
-            runRoboCode(1,robocodePath + battleFileName, str(j) + "result.txt")
+            changeEpsilonToOne(j)
+            setConfig(j)
+
+            #evaluation stage
+            runRoboCode(1,robocodePath + battleFileName, dataPath + str(j) + "result.txt")
 
 
         for r in robots:
@@ -301,15 +325,5 @@ def main(generations):
             r.saveHyperparams()
         resetConfig()
 
-
-
-
-
-robots = [Robot] * populationSize
-for i in range(0,populationSize):
-    robots[i] = Robot(i)
-
-
-
-
-main(1)
+run(1)
+#init(populationSize)
