@@ -312,6 +312,11 @@ for i in range(0,populationSize):
     robots[i] = Robot(i)
 
 
+def saveFitness(filename):
+    f = open(dataPath + filename, "a")
+    f.write( str(robots[1].fitness) +  "\n")
+    f.close()
+
 def run(generations):
     global robots
     for r in robots:
@@ -335,9 +340,10 @@ def run(generations):
         for r in robots:
             r.cleanHyperparams()
             r.saveHyperparams()
+
         generateWeights(inputNeurons, outputNeurons)
         resetConfig()
-
+        saveFitness("generationInfo.txt")
 
 run(3)
 #init(populationSize)
