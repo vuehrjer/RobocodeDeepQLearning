@@ -176,14 +176,12 @@ public class Rl_nn extends AdvancedRobot {
 
 		currentRobot = new NNRobot(currentRobotId, NN_obj,this);
 		currentRobot.loadRobotWeights();
-
+		setTurnRadarRightRadians(Double.POSITIVE_INFINITY);//turnRadarRight
 		while(true){
 
 			q_present_double = new double[total_actions.length];
 			q_next_double = new double[total_actions.length];
 
-
-			setTurnRadarRight(360);
 			qrl_x=quantize_positionX(getX()); //your x position -state number 1
 			qrl_y=quantize_positionY(getY()); //your y position -state number 2
 			double q_deltaX = deltaX/getBattleFieldWidth();
@@ -251,7 +249,7 @@ public class Rl_nn extends AdvancedRobot {
 		//currentRobot.set_fitness((float)reward);
 		//currentRobot.saveRobotFitness();
 		currentRobot.set_win(win);
-		currentRobot.saveRobotWins();
+		//currentRobot.saveRobotWins();
 		currentRobot.updateWeights();
 	}
 
@@ -289,17 +287,19 @@ public class Rl_nn extends AdvancedRobot {
 	private void trackAndShoot(double power) {
 		//setTurnRight(0);
 		//setAhead(0);
+
 		double bulletSpeed = 20 - power * 3;
 		long time = (long) (distance / bulletSpeed);
 		double futureX = getX() - deltaX + Math.sin(enemyHeading) * velocity * time;
 		double futureY = getY() - deltaY + Math.cos(enemyHeading) * velocity * time;
 		double absDeg = absoluteBearing(getX(), getY(), futureX, futureY);
 		setTurnGunRight(normalizeBearing(absDeg - getGunHeading()));
-		if (fireTime == getTime() && Math.abs(getGunTurnRemaining()) == 0) {
+		if (Math.abs(getGunTurnRemaining()) <= 2) {
 			setTurnGunRight(0);
 			setFire(power);
 		}
-		fireTime = getTime() + 1;
+
+
 	}
 
 	public void onScannedRobot(ScannedRobotEvent e) {
@@ -311,7 +311,6 @@ public class Rl_nn extends AdvancedRobot {
 		} else {
 			radarTurn += extraTurn;
 		}
-		setTurnRadarRightRadians(radarTurn);
 		X = getX();
 		Y = getY();
 		distance = e.getDistance();
@@ -322,6 +321,8 @@ public class Rl_nn extends AdvancedRobot {
 		deltaX = -distance * Math.sin(Math.toRadians(absBearingDeg));
 		deltaY = -distance * Math.cos(Math.toRadians(absBearingDeg));
 		enemyEnergy = e.getEnergy();
+		setTurnRadarRight(-getRadarTurnRemaining());
+
 	}
 
 	public double normalizeBearing(double angle) {
