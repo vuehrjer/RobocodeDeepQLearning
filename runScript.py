@@ -34,6 +34,7 @@ hyperparamStandardDeviation = 10
 class Robot:
     hyperparams = [0] * hyperparamAmount
     fitness = 0
+    id = 0
     def __init__(self, id):
         self.id = id
 
@@ -270,6 +271,8 @@ def makeEvolution(parents):
         nextGen[i+1] = children[1]
         i += 2
 
+    for i in range(populationSize):
+        nextGen[i].id = i
     return nextGen
 
 def changeEpsilonToOne(id):
@@ -320,9 +323,9 @@ def run(generations):
             r.loadFitness()
 
         robots = makeEvolution(robots)
-
         for r in robots:
             r.saveHyperparams()
+        generateWeights(inputNeurons, outputNeurons)
         resetConfig()
 
 run(1)
