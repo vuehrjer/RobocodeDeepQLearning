@@ -44,6 +44,14 @@ class Robot:
     def saveHyperparams(self):
         saveHyperparams(self.hyperparams, str(self.id) + 'hyperparams.txt')
 
+    def cleanHyperparams(self):
+
+        self.hyperparams[0] = clamp01(self.hyperparams[0])  # alpha,
+        self.hyperparams[1] = clamp01(self.hyperparams[1])  # gamma,
+        self.hyperparams[2] = clamp01(self.hyperparams[2])  # rho,
+        self.hyperparams[3] = clamp01(self.hyperparams[3])  # epsilon,
+        self.hyperparams[10] = clamp(abs(self.hyperparams[10]), 2, 100)  # hiddenLayerNeurons
+
     #checks all files that start with "id + 'result'",
     # e.g following files would be read if id = 0 ("0result", "0result_corners.txt", "0resultA.txt")
     def loadFitness(self):
@@ -119,6 +127,7 @@ def generateHyperparams():
         hyperParams[10] = int(clamp(abs(hyperParams[10] + 10), 2, 100))                                 # hiddenLayerNeurons,
         robots[i].hyperparams = hyperParams
         saveHyperparams(hyperParams, str(i) + "hyperparams.txt")
+
 
 
 def loadAllHyperparams():
@@ -324,9 +333,11 @@ def run(generations):
 
         robots = makeEvolution(robots)
         for r in robots:
+            r.cleanHyperparams()
             r.saveHyperparams()
         generateWeights(inputNeurons, outputNeurons)
         resetConfig()
 
-run(1)
+
+run(3)
 #init(populationSize)
