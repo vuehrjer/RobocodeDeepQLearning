@@ -353,9 +353,8 @@ public class Rl_nn extends AdvancedRobot {
 			BufferedReader reader = new BufferedReader(new FileReader(file));
 			id = Integer.parseInt(reader.readLine());
 			reader.close();
-			id++;
 			RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), false);
-			writer.write(id + "\n");
+			writer.write((id + 1) + "\n");
 			writer.close();
 		} catch (IOException e) {
 			e.printStackTrace();
