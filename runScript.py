@@ -4,7 +4,7 @@ import os, sys, time
 import numpy as np
 from copy import deepcopy
 import fileinput
-robocodePath = 'D:/FHTech/Sem2/ARL/Robocode/INSTALL/'
+robocodePath = 'C:/robocode/'
 dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning/ARL/Rl_nn.data/'
 subprocesses = []
 
@@ -189,7 +189,7 @@ def selectParents(parents):
 
         j = 0
         while j < len(parents[0].hyperparams):
-            diversity = pow((best_parents[0].hyperparams[j] - best_parents[i].hyperparams[j]), 2)
+            diversity = pow((best_parents[0].hyperparams[j] - best_parents[i].hyperparams[j])/abs(best_parents[0].hyperparams[j]), 2)
 
             total_diversity += diversity
             j += 1
@@ -357,5 +357,5 @@ def run(generations):
         resetConfig()
         saveFitness("generationInfo.txt")
 
-run(3)
+run(20)
 #init(populationSize)
