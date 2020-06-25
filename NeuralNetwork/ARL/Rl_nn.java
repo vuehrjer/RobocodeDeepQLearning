@@ -113,7 +113,7 @@ public class Rl_nn extends AdvancedRobot {
 	int actionIndex;
 	int roundsPerRobot = 50;
 
-	boolean onlyRunFittestRobot = true;
+	boolean onlyRunFittestRobot = false;
 	boolean diverseSearch = true;
 	boolean medianFitness = true;
 	//
@@ -254,7 +254,7 @@ public class Rl_nn extends AdvancedRobot {
 		//currentRobot.set_fitness((float)reward);
 		//currentRobot.saveRobotFitness();
 		currentRobot.set_win(win);
-		//currentRobot.saveRobotWins();
+		if (currentRobotId == 1 && epsilon != 1.0) currentRobot.saveRobotWins();
 		currentRobot.updateWeights();
 	}
 
