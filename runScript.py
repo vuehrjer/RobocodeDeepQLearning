@@ -1,13 +1,12 @@
 import random
 import subprocess
-import os, sys
+import os, sys, time
 import numpy as np
 from copy import deepcopy
 import fileinput
 robocodePath = 'C:/robocode/'
 dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning/ARL/Rl_nn.data/'
-battleFileName = 'battles/NNTrain.battle'
-
+subprocesses = []
 
 topParentPercent = 0.8
 mutationChance = 0.8
@@ -46,10 +45,10 @@ class Robot:
 
     def cleanHyperparams(self):
 
-        self.hyperparams[0] = clamp01(self.hyperparams[0])  # alpha,
-        self.hyperparams[1] = clamp01(self.hyperparams[1])  # gamma,
-        self.hyperparams[2] = clamp01(self.hyperparams[2])  # rho,
-        self.hyperparams[3] = clamp01(self.hyperparams[3])  # epsilon,
+        self.hyperparams[0] = clamp(self.hyperparams[0], 0.00000001 , 1)  # alpha,
+        self.hyperparams[1] = clamp(self.hyperparams[1], 0.00000001 , 1)  # gamma,
+        self.hyperparams[2] = clamp(self.hyperparams[2], 0.00000001 , 1)  # rho,
+        self.hyperparams[3] = clamp(self.hyperparams[3], 0.00000001 , 1)  # epsilon,
         self.hyperparams[10] = clamp(abs(self.hyperparams[10]), 2, 100)  # hiddenLayerNeurons
 
     #checks all files that start with "id + 'result'",
@@ -163,10 +162,10 @@ def runRoboCode(generations, battlePathAndName, resultPathandName):
     for x in range(generations):
         if (resultPathandName == ''):
             p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ' + battlePathAndName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
-            p1.wait()
+            subprocesses.append(p1)
         else:
             p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ' + battlePathAndName + ' -results ' + resultPathandName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
-            p1.wait()
+            subprocesses.append(p1)
         print("gen: " + str(x+1) + " of " + str(generations) + " done")
 
 
@@ -323,15 +322,28 @@ def run(generations):
         r.loadHyperparams()
 
     for i in range(generations):
+
+        resetConfig()
+        subprocesses.clear()
         for j in range(0,populationSize):
             #training stage
-            runRoboCode(1,robocodePath + battleFileName, '')
+            runRoboCode(1,robocodePath + 'battles/NNTrain.battle', '')
+            time.sleep(2)
+
+        for s in subprocesses:
+            s.wait()
+
+        subprocesses.clear()
+
+        resetConfig()
+        #evaluation stage
+        for j in range(0, populationSize):
             changeEpsilonToOne(j)
-            setConfig(j)
+            runRoboCode(1,robocodePath + 'battles/NNEvaluate.battle', dataPath + str(j) + "result.txt")
+            time.sleep(2)
 
-            #evaluation stage
-            runRoboCode(1,robocodePath + battleFileName, dataPath + str(j) + "result.txt")
-
+        for s in subprocesses:
+            s.wait()
 
         for r in robots:
             r.loadFitness()
