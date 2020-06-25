@@ -106,14 +106,16 @@ def loadHyperparams(filename):
 def avoidZero(min, max):
     rand = random.uniform(min, max)
     if rand == 0:
-        checkZero(min, max)
+        rand = avoidZero(min, max)
+        return rand
     else:
         return rand
 
 def avoidZeroGauss(mean, standardeviation):
     rand = random.gauss(mean, standardeviation)
     if rand == 0:
-        avoidZeroGauss()
+        rand = avoidZeroGauss()
+        return rand
     else:
         return rand
 #
