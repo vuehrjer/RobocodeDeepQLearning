@@ -78,7 +78,7 @@ public class Rl_nn extends AdvancedRobot {
 	static double hitRobotReward;
 
 
-	static int inputNeurons = 7;
+	static int inputNeurons = 8;
 	static int hiddenLayerNeurons; //10
 	static int outputNeurons = 1;
 
@@ -113,7 +113,7 @@ public class Rl_nn extends AdvancedRobot {
 	int actionIndex;
 	int roundsPerRobot = 50;
 
-	boolean onlyRunFittestRobot = false;
+	boolean onlyRunFittestRobot = true;
 	boolean diverseSearch = true;
 	boolean medianFitness = true;
 	//
@@ -129,6 +129,7 @@ public class Rl_nn extends AdvancedRobot {
 	private double X = 0;
 	private double Y = 0;
 	private int lastAction = -1;
+
 
 
 	public void run(){
@@ -198,7 +199,8 @@ public class Rl_nn extends AdvancedRobot {
 				inputValues[4] = myEnergy;
 				inputValues[5] = enemyEnergy;
 				inputValues[6] = i;
-				inputValues[7] = 1;
+				inputValues[7] = lastAction;
+				inputValues[8] = 1;
 
 				q_present_double[i] = currentRobot.get_NN().NNfeedforward(inputValues);
 			}
@@ -234,14 +236,17 @@ public class Rl_nn extends AdvancedRobot {
 				inputValuesNew[4] = myEnergy;
 				inputValuesNew[5] = enemyEnergy;
 				inputValuesNew[6] = i;
-				inputValuesNew[7] = 1;
+				inputValues[7] = lastAction;
+				inputValues[8] = 1;
 
 				q_next_double[i] = currentRobot.get_NN().NNfeedforward(inputValuesNew);
 			}
             next_q_value = q_next_double[getMax(q_next_double)];
 			current_q_value = current_q_value + alpha * (reward + gamma * next_q_value - current_q_value);
 
-            currentRobot.get_NN().NNtrain(inputValues, current_q_value);
+			if(!(epsilon == 1)) {
+				currentRobot.get_NN().NNtrain(inputValues, current_q_value);  //don't train in evaluation stage
+			}
 		}
 	}
 

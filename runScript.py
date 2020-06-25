@@ -10,11 +10,11 @@ subprocesses = []
 
 topParentPercent = 0.8
 mutationChance = 0.8
-inputNeurons = 7
+inputNeurons = 8
 hiddenLayerNeurons = 10
 outputNeurons = 1
 populationSize = 10
-randomWeightStandardDeviation = 5
+randomWeightStandardDeviation = 20
 hyperparamAmount = 11
 hyperparamStandardDeviation = 10
 # hyperparams:
@@ -103,6 +103,19 @@ def loadHyperparams(filename):
     with open(dataPath + filename) as f:
         return [float(x) for x in f]
 
+def avoidZero(min, max):
+    rand = random.uniform(min, max)
+    if rand == 0:
+        checkZero(min, max)
+    else:
+        return rand
+
+def avoidZeroGauss(mean, standardeviation):
+    rand = random.gauss(mean, standardeviation)
+    if rand == 0:
+        avoidZeroGauss()
+    else:
+        return rand
 #
 def generateWeights(inputNeurons, outputNeurons, weights_hidden=None, weights_output=None):
     # Generate random weights_hidden array with Normal distribution
@@ -115,15 +128,26 @@ def generateWeights(inputNeurons, outputNeurons, weights_hidden=None, weights_ou
 
 #genereates Hyperparameter, and saves them in robots and in files
 def generateHyperparams():
-    hyperParams = [hyperparamAmount]
     for i in range(populationSize):
-        hyperParams = [random.gauss(0, hyperparamStandardDeviation) for k in range(hyperparamAmount)]
+        hyperParams = [0] * hyperparamAmount
+        #hyperParams = [random.gauss(0, hyperparamStandardDeviation) for k in range(hyperparamAmount)]
         #scale to better fit 0 - 1
-        hyperParams[0] = clamp01(abs(hyperParams[0] / hyperparamStandardDeviation) * 0.3 + 0.5)         # alpha,
-        hyperParams[1] = clamp01(abs(hyperParams[1] / hyperparamStandardDeviation) * 0.3 + 0.5)         # gamma,
-        hyperParams[2] = clamp01(abs(hyperParams[2] / hyperparamStandardDeviation) * 0.00005 + 0.0001)  # rho,
-        hyperParams[3] = random.random()                                                                # epsilon,
-        hyperParams[10] = int(clamp(abs(hyperParams[10] + 10), 2, 100))                                 # hiddenLayerNeurons,
+        for j in range(4):
+            if j == 2:
+                hyperParams[2] = avoidZero(0,1) * 0.01             #rho
+            else:
+                hyperParams[j] = avoidZero(0,1)                         # alpha,
+        #hyperParams[1] = checkZero(0,1)                         # gamma,
+        #hyperParams[2] = checkZero(0,1) * 0.001                 # rho,
+        #hyperParams[3] = checkZero(0,1)                                            # epsilon,
+        for j in range(4, 10):
+            hyperParams[j] = avoidZeroGauss(0, 50)                         #hitBulletReward
+        #yperParams[5] = checkZero(-500, 500)                               #hitByBulletReward
+        #hyperParams[6] = checkZero(-500, 500)                            #hitRobotReward
+        #hyperParams[7] = checkZero(-500, 500)                            #hitWallReward
+        #hyperParams[8] = checkZero(-500, 500)                            #onDeathReward
+        #hyperParams[9] = checkZero(-500, 500)                            #onWinReward
+        hyperParams[10] = int(random.uniform(2, 20))                                # hiddenLayerNeurons,
         robots[i].hyperparams = hyperParams
         saveHyperparams(hyperParams, str(i) + "hyperparams.txt")
 
@@ -226,7 +250,7 @@ def mutate(parent):
     for i in range(len(child.hyperparams)):
         rand = random.random()
         if(rand < mutationChance):
-            child.hyperparams[i] = np.random.normal(loc=child.hyperparams[i], scale=abs(child.hyperparams[i]/2))
+            child.hyperparams[i] = avoidZeroGauss(child.hyperparams[i], abs(child.hyperparams[i]/2))
     child.hyperparams[len(child.hyperparams) - 1] = int(child.hyperparams[len(child.hyperparams) - 1])
     return child
 
@@ -357,5 +381,5 @@ def run(generations):
         resetConfig()
         saveFitness("generationInfo.txt")
 
-run(20)
-#init(populationSize)
+#run(20)
+init(populationSize)
