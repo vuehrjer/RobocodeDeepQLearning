@@ -9,7 +9,7 @@ dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning
 subprocesses = []
 
 topParentPercent = 0.8
-mutationChance = 0.8
+mutationChance = 0.2
 inputNeurons = 8
 hiddenLayerNeurons = 10
 outputNeurons = 1
@@ -49,7 +49,8 @@ class Robot:
         self.hyperparams[1] = clamp(self.hyperparams[1], 0.00000001 , 1)  # gamma,
         self.hyperparams[2] = clamp(self.hyperparams[2], 0.00000001 , 1)  # rho,
         self.hyperparams[3] = clamp(self.hyperparams[3], 0.00000001 , 1)  # epsilon,
-        self.hyperparams[10] = clamp(abs(self.hyperparams[10]), 2, 100)  # hiddenLayerNeurons
+
+        self.hyperparams[10] = clamp(abs(self.hyperparams[10]), 2, 20)  # hiddenLayerNeurons
 
     #checks all files that start with "id + 'result'",
     # e.g following files would be read if id = 0 ("0result", "0result_corners.txt", "0resultA.txt")
@@ -134,22 +135,19 @@ def generateHyperparams():
         hyperParams = [0] * hyperparamAmount
         #hyperParams = [random.gauss(0, hyperparamStandardDeviation) for k in range(hyperparamAmount)]
         #scale to better fit 0 - 1
+        # alpha, gamma, rho, epsilon
         for j in range(4):
             if j == 2:
                 hyperParams[2] = avoidZero(0,1) * 0.01             #rho
             else:
-                hyperParams[j] = avoidZero(0,1)                         # alpha,
-        #hyperParams[1] = checkZero(0,1)                         # gamma,
-        #hyperParams[2] = checkZero(0,1) * 0.001                 # rho,
-        #hyperParams[3] = checkZero(0,1)                                            # epsilon,
+                hyperParams[j] = avoidZero(0,1)
+
+        # rewards
         for j in range(4, 10):
-            hyperParams[j] = avoidZeroGauss(0, 50)                         #hitBulletReward
-        #yperParams[5] = checkZero(-500, 500)                               #hitByBulletReward
-        #hyperParams[6] = checkZero(-500, 500)                            #hitRobotReward
-        #hyperParams[7] = checkZero(-500, 500)                            #hitWallReward
-        #hyperParams[8] = checkZero(-500, 500)                            #onDeathReward
-        #hyperParams[9] = checkZero(-500, 500)                            #onWinReward
-        hyperParams[10] = int(random.uniform(2, 20))                                # hiddenLayerNeurons,
+            hyperParams[j] = avoidZeroGauss(0, 50)
+
+        # hiddenLayerNeurons
+        hyperParams[10] = int(random.uniform(2, 20))
         robots[i].hyperparams = hyperParams
         saveHyperparams(hyperParams, str(i) + "hyperparams.txt")
 
@@ -383,5 +381,5 @@ def run(generations):
         resetConfig()
         saveFitness("generationInfo.txt")
 
-#run(20)
-init(populationSize)
+run(3)
+#init(populationSize)

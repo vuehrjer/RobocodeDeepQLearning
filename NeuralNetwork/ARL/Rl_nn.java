@@ -10,6 +10,7 @@ import robocode.util.Utils;
 import java.util.Random;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 
 
 public class Rl_nn extends AdvancedRobot {
@@ -119,6 +120,10 @@ public class Rl_nn extends AdvancedRobot {
 	//
 	static int currentRobotId = -1;
 
+	static int winSaveAmount = 200;
+	static int winArrayIndex;
+	static int[] winArray;
+
 	NNRobot currentRobot;
 	private double enemyHeading = 0;
 	private double velocity = 0;
@@ -133,6 +138,7 @@ public class Rl_nn extends AdvancedRobot {
 
 
 	public void run(){
+
 
 		setColors(null, Color.PINK, Color.PINK, new Color(255,165,0,100), new Color(150, 0, 150));
 		setBodyColor(Color.PINK);
@@ -213,16 +219,24 @@ public class Rl_nn extends AdvancedRobot {
 			Random rand = new Random();
             dummy = rand.nextFloat();
 
+			random_action = ThreadLocalRandom.current().nextInt(total_actions.length);
 			if(dummy < epsilon) {
 				rl_action(actionIndex);
 			}
 			else{
-				random_action = ThreadLocalRandom.current().nextInt(total_actions.length);
 				rl_action(random_action);
 			}
 
 			execute();
 
+			if(dummy < epsilon) {
+				rl_action(actionIndex);
+			}
+			else{
+				rl_action(random_action);
+			}
+			execute();
+			
             qrl_x=quantize_positionX(getX()); //your x position -state number 1
             qrl_y=quantize_positionY(getY()); //your y position -state number 2
 
@@ -253,8 +267,26 @@ public class Rl_nn extends AdvancedRobot {
 	public void saveReward(){
 		//currentRobot.set_fitness((float)reward);
 		//currentRobot.saveRobotFitness();
-		currentRobot.set_win(win);
-		if (currentRobotId == 1 && epsilon != 1.0) currentRobot.saveRobotWins();
+		if (currentRobotId == 1 && epsilon != 1.0) {
+			if (winArray == null){
+				winArray = new int[winSaveAmount];
+				winArrayIndex = 0;
+
+			}
+
+			winArray[winArrayIndex] = win;
+
+			if (winArrayIndex == winSaveAmount - 1){
+				//Calculate
+				float winAverage = IntStream.of(winArray).sum()/(float)winSaveAmount;
+
+				currentRobot.set_win(winAverage);
+				currentRobot.saveRobotWins();
+				winArrayIndex = 0;
+			} else {
+				++winArrayIndex;
+			}
+		}
 		currentRobot.updateWeights();
 	}
 

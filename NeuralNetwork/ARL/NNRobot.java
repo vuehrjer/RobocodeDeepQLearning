@@ -12,7 +12,7 @@ public class NNRobot {
     private NN _NN;
     private float _fitness;
     private Rl_nn robotRef;
-    private int win;
+    private float win;
     private int[] winrate;
 
 
@@ -176,7 +176,7 @@ public class NNRobot {
     public void set_fitness(float _fitness) {
         this._fitness = _fitness;
     }
-    public void set_win(int win){
+    public void set_win(float win){
         this.win = win;
     }
     public int[] get_winrate(){
