@@ -50,7 +50,7 @@ class Robot:
         self.hyperparams[1] = clamp(abs(self.hyperparams[1]), 0.00000001 , 1)  # gamma,
         self.hyperparams[2] = clamp(abs(self.hyperparams[2]), 0.00000001 , 1)  # rho,
         self.hyperparams[3] = clamp(abs(self.hyperparams[3]), 0.00000001 , 1)  # epsilon,
-        self.hyperparams[10] = clamp(abs(self.hyperparams[10]), 2, 100)  # hiddenLayerNeurons
+        #self.hyperparams[10] = clamp(abs(self.hyperparams[10]), 2, 100)  # hiddenLayerNeurons
 
     #checks all files that start with "id + 'result'",
     # e.g following files would be read if id = 0 ("0result", "0result_corners.txt", "0resultA.txt")
