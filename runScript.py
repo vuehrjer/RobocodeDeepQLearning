@@ -1,4 +1,5 @@
 import random
+import math
 import subprocess
 import os, sys, time
 import numpy as np
@@ -44,13 +45,11 @@ class Robot:
         saveHyperparams(self.hyperparams, str(self.id) + 'hyperparams.txt')
 
     def cleanHyperparams(self):
-
-        self.hyperparams[0] = clamp(self.hyperparams[0], 0.00000001 , 1)  # alpha,
-        self.hyperparams[1] = clamp(self.hyperparams[1], 0.00000001 , 1)  # gamma,
-        self.hyperparams[2] = clamp(self.hyperparams[2], 0.00000001 , 1)  # rho,
-        self.hyperparams[3] = clamp(self.hyperparams[3], 0.00000001 , 1)  # epsilon,
-
-        self.hyperparams[10] = clamp(abs(self.hyperparams[10]), 2, 20)  # hiddenLayerNeurons
+        self.hyperparams[0] = clamp(abs(self.hyperparams[0]), 0.00000001 , 1)  # alpha,
+        self.hyperparams[1] = clamp(abs(self.hyperparams[1]), 0.00000001 , 1)  # gamma,
+        self.hyperparams[2] = clamp(abs(self.hyperparams[2]), 0.00000001 , 1)  # rho,
+        self.hyperparams[3] = clamp(abs(self.hyperparams[3]), 0.00000001 , 1)  # epsilon,
+        self.hyperparams[10] = clamp(abs(self.hyperparams[10]), 2, 100)  # hiddenLayerNeurons
 
     #checks all files that start with "id + 'result'",
     # e.g following files would be read if id = 0 ("0result", "0result_corners.txt", "0resultA.txt")
@@ -87,17 +86,17 @@ def loadWeights(filename):
 
 def saveHyperparams(hyperParams, filename):
     f = open(dataPath + filename, "w+")
-    f.write(str(clamp01(hyperParams[0])) + "\n")            # alpha,
-    f.write(str(clamp01(hyperParams[1])) + "\n")            # gamma,
-    f.write(str(clamp01(hyperParams[2])) + "\n")            # rho,
-    f.write(str(clamp01(hyperParams[3])) + "\n")            # epsilon,
+    f.write(str(abs(hyperParams[0])) + "\n")            # alpha,
+    f.write(str(abs(hyperParams[1])) + "\n")            # gamma,
+    f.write(str(abs(hyperParams[2])) + "\n")            # rho,
+    f.write(str(abs(hyperParams[3])) + "\n")            # epsilon,
     f.write(str(hyperParams[4]) + "\n")                     # hitBulletReward,
     f.write(str(hyperParams[5]) + "\n")                     # hitByBulletReward,
     f.write(str(hyperParams[6]) + "\n")                     # hitRobotReward,
     f.write(str(hyperParams[7]) + "\n")                     # hitwallReward,
     f.write(str(hyperParams[8]) + "\n")                     # onDeathReward,
     f.write(str(hyperParams[9]) + "\n")                     # onWinReward,
-    f.write(str(int(clamp(abs(hyperParams[10]), 2, 100))) + "\n")  # hiddenLayerNeurons
+    f.write(str(hyperParams[10]) + "\n")  # hiddenLayerNeurons
     f.close()
 
 def loadHyperparams(filename):
@@ -250,8 +249,11 @@ def mutate(parent):
     for i in range(len(child.hyperparams)):
         rand = random.random()
         if(rand < mutationChance):
-            child.hyperparams[i] = avoidZeroGauss(child.hyperparams[i], abs(child.hyperparams[i]/2))
-    child.hyperparams[len(child.hyperparams) - 1] = int(child.hyperparams[len(child.hyperparams) - 1])
+            child.hyperparams[i] = avoidZeroGauss(child.hyperparams[i], math.log(abs(child.hyperparams[i]/2)) + 1, 2)
+    if int(abs(child.hyperparams[len(child.hyperparams) - 1])) < 2:
+        child.hyperparams[len(child.hyperparams) - 1] = int(abs(child.hyperparams[len(child.hyperparams) - 1])) + 2
+    else:
+        child.hyperparams[len(child.hyperparams) - 1] = int(abs(child.hyperparams[len(child.hyperparams) - 1]))
     return child
 
 def crossover(father, mother):
