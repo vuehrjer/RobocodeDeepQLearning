@@ -249,7 +249,7 @@ def mutate(parent):
     for i in range(len(child.hyperparams)):
         rand = random.random()
         if(rand < mutationChance):
-            child.hyperparams[i] = avoidZeroGauss(child.hyperparams[i], math.log(abs(child.hyperparams[i]/2)) + 1, 2)
+            child.hyperparams[i] = avoidZeroGauss(child.hyperparams[i], math.log(abs(child.hyperparams[i]/2) + 1, 2))
     if int(abs(child.hyperparams[len(child.hyperparams) - 1])) < 2:
         child.hyperparams[len(child.hyperparams) - 1] = int(abs(child.hyperparams[len(child.hyperparams) - 1])) + 2
     else:
