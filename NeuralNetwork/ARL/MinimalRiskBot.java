@@ -4,18 +4,35 @@ import dsekercioglu.roboneural.net.*;
 
 import java.awt.*;
 import java.awt.geom.Point2D;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import robocode.*;
 import robocode.util.Utils;
 
+/**
+ * MLP ARRAY
+ * Activation Function enum(int) ARRAY [0 ... 6] (Length: MLP ARRAY - 1)
+ * Learning Rate () double01
+ * Batch Size int [1 ... 10]
+ * nonHitReward double
+ * hitReward double
+ * ramReward double
+ */
+
 public class MinimalRiskBot extends AdvancedRobot {
-    public static MultiLayerPerceptron mlp = new MultiLayerPerceptron(new int[]{6, 5, 5, 1}, new ActivationFunction[]{new Tanh(), new Tanh(), new Tanh()}, 0.01, 1);
+    public static MultiLayerPerceptron mlp;
     //Using Hyperbolic Tangent to have negative results.
     //This one does deep learning =).
     Point2D.Double myLocation = new Point2D.Double();
     Point2D.Double enemyLocation = new Point2D.Double();
+
+    public static double nonHitReward;
+    public static double hitReward;
+    public static double ramReward;
 
     public static ArrayList<double[]> notHit = new ArrayList<>();//Correct moves
     public static ArrayList<double[]> hit = new ArrayList<>();//Wrong moves
@@ -35,7 +52,68 @@ public class MinimalRiskBot extends AdvancedRobot {
     double myLateralVelocity;
     double myAdvancingVelocity;
 
+    /***
+     *
+     */
+    static int[] LayerDefinition;
+    static int[] ActivationFunctionDefinitionEnum;
+    static ActivationFunction[] ActivationFunctionDefinition;
+    static double learningRate;
+    static int batchSize;
+
+    boolean onlyRunFittestRobot = false;
+    static int currentRobotId = -1;
+
     public void run() { //Radar Stuff and Colors.
+
+
+
+        if (currentRobotId == -1){
+            if (onlyRunFittestRobot){
+                currentRobotId = 1;
+            } else{
+                //load config
+                currentRobotId = selectNextRobotID("config.txt");
+            }
+        }
+
+
+        if(mlp == null){
+
+            loadHyperparameters(currentRobotId + "hyperparams.txt");
+            //new int[]{6, 5, 5, 1}
+            //new ActivationFunction[]{new Tanh(), new Tanh(), new Tanh()}
+            ActivationFunctionDefinition = new ActivationFunction[ActivationFunctionDefinitionEnum.length];
+            for(int i = 0; i < ActivationFunctionDefinitionEnum.length; ++i){
+                switch (ActivationFunctionDefinitionEnum[i]){
+                    case 0:
+                        ActivationFunctionDefinition[i] = new Gaussian();
+                        break;
+                    case 1:
+                        ActivationFunctionDefinition[i] = new Linear();
+                        break;
+                    case 2:
+                        ActivationFunctionDefinition[i] = new ReLU();
+                        break;
+                    case 3:
+                        ActivationFunctionDefinition[i] = new Sigmoid();
+                        break;
+                    case 4:
+                        ActivationFunctionDefinition[i] = new Sine();
+                        break;
+                    case 5:
+                        ActivationFunctionDefinition[i] = new SmoothMax();
+                        break;
+                    case 6:
+                        ActivationFunctionDefinition[i] = new Tanh();
+                        break;
+                    default:
+                        throw new IllegalStateException("Unexpected value: " + ActivationFunctionDefinitionEnum[i]);
+                }
+            }
+            mlp = new MultiLayerPerceptron(LayerDefinition, ActivationFunctionDefinition, learningRate, batchSize);
+        }
+
         setBodyColor(Color.BLACK);
         setGunColor(Color.CYAN);
         setRadarColor(Color.BLACK);
@@ -45,6 +123,64 @@ public class MinimalRiskBot extends AdvancedRobot {
         for (;;) {
             turnRadarRightRadians(Double.POSITIVE_INFINITY);
         }
+    }
+
+    /**
+     * MLP ARRAY
+     * Activation Function enum(int) ARRAY [0 ... 6] (Length: MLP ARRAY - 1)
+     * Learning Rate () double01
+     * Batch Size int [1 ... 10]
+     * nonHitReward double
+     * hitReward double
+     * ramReward double
+     */
+    private void loadHyperparameters(String fileName) {
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(getDataFile(fileName)));
+
+            try{
+                LayerDefinition = getIntArrayFromString(reader.readLine());
+                ActivationFunctionDefinitionEnum = getIntArrayFromString(reader.readLine());
+                learningRate = Double.parseDouble(reader.readLine());
+                batchSize = Integer.parseInt(reader.readLine());
+                nonHitReward = Double.parseDouble(reader.readLine());
+                hitReward = Double.parseDouble(reader.readLine());
+                ramReward = Double.parseDouble(reader.readLine());
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }finally {
+                reader.close();
+            }
+        } catch (IOException e){
+            e.printStackTrace();
+        }
+
+    }
+
+    private int[] getIntArrayFromString( String line) {
+        String[] str = line.split(",");
+        int[] array = new int[str.length];
+        for (int i = 0; i < str.length; ++i ) {
+            array[i] = Integer.parseInt(str[i]);
+        }
+        return array;
+    }
+
+    public int selectNextRobotID(String robotAndRoundFile) {
+        int id = -1;
+        File file = getDataFile(robotAndRoundFile);
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(file));
+            id = Integer.parseInt(reader.readLine());
+            reader.close();
+            RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(), false);
+            writer.write((id + 1) + "\n");
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return id;
     }
 
     public double[] produceData(Point2D.Double target) {//We will use this as an input to our MLP.
@@ -57,6 +193,8 @@ public class MinimalRiskBot extends AdvancedRobot {
         data[5] = myAdvancingVelocity / 16 + 0.5;//Learning how enemy fires?
         return data;
     }
+
+
 
     //From the wiki, GoTo page.
     /**
@@ -126,7 +264,7 @@ public class MinimalRiskBot extends AdvancedRobot {
             Point2D.Double best = new Point2D.Double(getBattleFieldWidth()/2, getBattleFieldHeight()/2);
             for (int i = 0; i < points.size(); i++) { //Finding the bestPoint
                 Point2D.Double p = points.get(i);
-                if (MoveUtils.distanceToWall(p) > 22) {//We don't want to leave this to MLP.
+                if (MoveUtils.distanceToWall(p, getBattleFieldWidth(),getBattleFieldHeight()) > 22) {//We don't want to leave this to MLP.
                     double[] data = produceData(p);
                     double currentDanger = mlp.getOutput(data)[0];
                     if (currentDanger < lowestDanger) {
@@ -205,18 +343,18 @@ public class MinimalRiskBot extends AdvancedRobot {
     public void train() {
         for (int i = notHit.size() - 1; i > Math.max(0, notHit.size() - 15); i--) {
             //System.out.println(Arrays.toString(notHit.get(i)));
-            mlp.backPropogate(notHit.get(i), new double[]{-1});
+            mlp.backPropogate(notHit.get(i), new double[]{nonHitReward});
         }
         for (int i = hit.size() - 1; i > Math.max(0, hit.size() - 15); i--) {
             /*
             We want this training process to have more effect on the result
             because the robots learn.
             */
-            mlp.backPropogate(hit.get(i), new double[]{1});
+            mlp.backPropogate(hit.get(i), new double[]{hitReward});
         }
         for (int i = rammed.size() - 1; i > Math.max(0, rammed.size() - 5); i--) {
             //This training process will have even more effect on the result.
-            mlp.backPropogate(rammed.get(i), new double[]{1});
+            mlp.backPropogate(rammed.get(i), new double[]{ramReward});
         }
 
     }
@@ -227,9 +365,9 @@ public class MinimalRiskBot extends AdvancedRobot {
             return new Point2D.Double(source.x + Math.sin(angle) * distance, source.y + Math.cos(angle) * distance);
         }
 
-        public static double distanceToWall(Point2D.Double location) {
-            return Math.min(Math.min(location.x, 800 - location.x), Math.min(location.y, 600 - location.y));
-            //This robot is just for 1on1 but it uses MinimumRisk=)
+        public static double distanceToWall(Point2D.Double location, double battleFieldWidth, double ballteFieldHeight) {
+            return Math.min(Math.min(location.x, battleFieldWidth - location.x), Math.min(location.y, ballteFieldHeight - location.y));
+
         }
     }
 }
