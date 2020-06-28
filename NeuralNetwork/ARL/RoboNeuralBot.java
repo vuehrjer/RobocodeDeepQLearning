@@ -141,6 +141,10 @@ public class RoboNeuralBot extends AdvancedRobot {
                 bins[result] = 1;//We set the correct gf. Others are zero initially.
                 neuralNetworkOutput.add(0, bins); //Adding it.
             }
+            if(neuralNetworkOutput.size() > 2000){
+                neuralNetworkOutput.remove(neuralNetworkOutput.size()-1);
+                neuralNetworkInput.remove(neuralNetworkInput.size()-1);
+            }
         }
         gfWaves.removeAll(gfWavesToRemove);//Removing the hit waves.
         gfWavesToRemove.clear();//Clearing the list.
