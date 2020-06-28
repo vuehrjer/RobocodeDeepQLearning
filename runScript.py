@@ -246,14 +246,39 @@ def selectParents(parents):
 
 def mutate(parent):
     child = deepcopy(parent)
-    for i in range(len(child.hyperparams)):
-        rand = random.random()
-        if(rand < mutationChance):
-            child.hyperparams[i] = avoidZeroGauss(child.hyperparams[i], math.log(abs(child.hyperparams[i]/2) + 1, 2))
-    if int(abs(child.hyperparams[len(child.hyperparams) - 1])) < 2:
-        child.hyperparams[len(child.hyperparams) - 1] = int(abs(child.hyperparams[len(child.hyperparams) - 1])) + 2
-    else:
-        child.hyperparams[len(child.hyperparams) - 1] = int(abs(child.hyperparams[len(child.hyperparams) - 1]))
+    rand = random.random()
+    child.layerDepth = len(child.hyperparams[0])
+    if rand < mutationChance:
+        child.layerDepth = round(random.gauss(len(child.hyperparams[0]), math.log(len(child.hyperparams[0]) + 1, 2)))
+        if child.layerDepth < 3:
+            child.layerDepth = 3
+        child.hyperparams[0] = [0] * child.layerDepth
+        for i in range(len(child.hyperparams[0])):
+            if i == 0:
+                child.hyperparams[0][i] = 6
+            elif i == len(child.hyperparams[0]) - 1:
+                child.hyperparams[0][i] = 1
+            else:
+                child.hyperparams[0][i] = random.randint(1, 20)
+        child.hyperparams[1] = [0] * (child.layerDepth - 1)
+        for i in range(len(child.hyperparams[1])):
+            child.hyperparams[1][i] = random.randint(0, 6)
+    rand = random.random()
+    if rand < mutationChance:
+        child.hyperparams[2] += abs(random.gauss(0, child.hyperparams[2]))
+    rand = random.random()
+    if rand < mutationChance:
+        child.hyperparams[3] = clamp(int(random.gauss(child.hyperparams[3], 5)),  1, 10)
+    rand = random.random()
+    if rand < mutationChance:
+        child.hyperparams[4] = abs(random.gauss(child.hyperparams[4], child.hyperparams[4]))
+    rand = random.random()
+    if rand < mutationChance:
+        child.hyperparams[5] = -abs(random.gauss(child.hyperparams[5], child.hyperparams[5]))
+    rand = random.random()
+    if rand < mutationChance:
+        child.hyperparams[6] = -abs(random.gauss(child.hyperparams[6], child.hyperparams[6]))
+
     return child
 
 def crossover(father, mother):
