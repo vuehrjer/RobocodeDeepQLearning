@@ -108,7 +108,7 @@ public class MinimalRiskBot extends AdvancedRobot {
         if (getDistanceRemaining() < 18/*If touching the target we will create another set of points*/) {
             if (!hitWhenGoing) { //This will be true if we hit a bullet when going to our destination
                 notHit.add(bestResultInput);//Because we didn't get hit this is a correct move.
-                if(notHit.size() > 1000){
+                if(notHit.size() > 100){
                     notHit.remove(0);
                 }
             }
@@ -123,7 +123,7 @@ public class MinimalRiskBot extends AdvancedRobot {
                         */
             }
             double lowestDanger = Double.POSITIVE_INFINITY;
-            Point2D.Double best = null;
+            Point2D.Double best = new Point2D.Double(getBattleFieldWidth()/2, getBattleFieldHeight()/2);
             for (int i = 0; i < points.size(); i++) { //Finding the bestPoint
                 Point2D.Double p = points.get(i);
                 if (MoveUtils.distanceToWall(p) > 22) {//We don't want to leave this to MLP.
@@ -139,11 +139,54 @@ public class MinimalRiskBot extends AdvancedRobot {
             goTo(best.x, best.y);//Going to the position
         }
         train();//Train!
+
+        double absBearingDeg = getHeading() + e.getBearing();
+        if (absBearingDeg < 0) absBearingDeg += 360;
+        double deltaX = -distance * Math.sin(Math.toRadians(absBearingDeg));
+        double deltaY = -distance * Math.cos(Math.toRadians(absBearingDeg));
+        double enemyHeading = e.getHeadingRadians();
+        int power = 2;
+        double bulletSpeed = 20 - power * 3;
+        long time = (long) (distance / bulletSpeed);
+        double futureX = getX() - deltaX + Math.sin(enemyHeading) * e.getVelocity() * time;
+        double futureY = getY() - deltaY + Math.cos(enemyHeading) * e.getVelocity() * time;
+        double absDeg = absoluteBearing(getX(), getY(), futureX, futureY);
+        setTurnGunRight(normalizeBearing(absDeg - getGunHeading()));
+        if (Math.abs(getGunTurnRemaining()) <= 5) {
+            setTurnGunRight(0);
+            setFire(power);
+        }
     }
+    public double normalizeBearing(double angle) {
+        while (angle >  180) angle -= 360;
+        while (angle < -180) angle += 360;
+        return angle;
+
+    }
+    //absolute bearing
+    double absoluteBearing(double x1, double y1, double x2, double y2) {
+        double xo = x2 - x1;
+        double yo = y2 - y1;
+        double hyp = Point2D.distance(x1, y1, x2, y2);
+        double arcSin = Math.toDegrees(Math.asin(xo / hyp));
+        double bearing = 0;
+        if (xo > 0 && yo > 0) { // both pos:lower-Left
+            bearing = arcSin;
+        } else if (xo < 0 && yo > 0) { // x neg, y pos: lower-right
+            bearing = 360 + arcSin; // arcsin is negative here, actuall 360 -ang
+        } else if (xo > 0 && yo < 0) { // x pos, y neg:upper-left
+            bearing = 180 - arcSin;
+        } else if (xo < 0 && yo < 0) { // both neg: upper-right
+            bearing = 180 - arcSin; // arcsin is negative here, actually 180 + ang
+        }
+        return bearing;
+    }
+
+
 
     public void onHitByBullet(HitByBulletEvent e) {//Hit learning
         hit.add(bestResultInput);
-        if(hit.size() > 1000){
+        if(hit.size() > 100){
             hit.remove(0);
         }
         hitWhenGoing = true;
@@ -152,7 +195,7 @@ public class MinimalRiskBot extends AdvancedRobot {
     public void onHitRobot(HitRobotEvent e) {
         if (e.isMyFault()) {//If the enemy rammed us it's not our fault.
             rammed.add(bestResultInput);
-            if(rammed.size() > 1000){
+            if(rammed.size() > 100){
                 rammed.remove(0);
             }
             hitWhenGoing = true;
@@ -161,7 +204,7 @@ public class MinimalRiskBot extends AdvancedRobot {
 
     public void train() {
         for (int i = notHit.size() - 1; i > Math.max(0, notHit.size() - 15); i--) {
-            System.out.println(Arrays.toString(notHit.get(i)));
+            //System.out.println(Arrays.toString(notHit.get(i)));
             mlp.backPropogate(notHit.get(i), new double[]{-1});
         }
         for (int i = hit.size() - 1; i > Math.max(0, hit.size() - 15); i--) {
@@ -171,7 +214,7 @@ public class MinimalRiskBot extends AdvancedRobot {
             */
             mlp.backPropogate(hit.get(i), new double[]{1});
         }
-        for (int i = rammed.size() - 1; i > Math.max(0, hit.size() - 5); i--) {
+        for (int i = rammed.size() - 1; i > Math.max(0, rammed.size() - 5); i--) {
             //This training process will have even more effect on the result.
             mlp.backPropogate(rammed.get(i), new double[]{1});
         }
