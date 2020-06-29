@@ -14,13 +14,13 @@ import robocode.*;
 import robocode.util.Utils;
 
 /**
- * MLP ARRAY
- * Activation Function enum(int) ARRAY [0 ... 6] (Length: MLP ARRAY - 1)
- * Learning Rate () double01
- * Batch Size int [1 ... 10]
- * nonHitReward double
- * hitReward double
- * ramReward double
+ * # MLP ARRAY [3...]
+ * # Activation Function enum(int) ARRAY [0 ... 6] (Length: MLP ARRAY - 1)
+ * # Learning Rate () double01
+ * # Batch Size int [1 ... 10]
+ * # nonHitReward double
+ * # hitReward double
+ * # ramReward double
  */
 
 public class MinimalRiskBot extends AdvancedRobot {
@@ -158,11 +158,37 @@ public class MinimalRiskBot extends AdvancedRobot {
 
     }
 
+    @Override
+    public void onWin(WinEvent event) {
+        super.onWin(event);
+        saveWin(1);
+    }
+
+    @Override
+    public void onDeath(DeathEvent event) {
+        super.onDeath(event);
+        saveWin(0);
+
+    }
+    void saveWin(int win) {
+        if (currentRobotId == 1) {
+            try {
+                File file = getDataFile("wins.txt");
+                RobocodeFileWriter writer = new RobocodeFileWriter(file.getAbsolutePath(),true);
+                writer.write( win + "\r\n");
+                writer.close();
+            } catch (IOException e){
+                e.printStackTrace();
+            }
+        }
+    }
+
     private int[] getIntArrayFromString( String line) {
-        String[] str = line.split(",");
+        //strip array from arraymarkers and split into array
+        String[] str = line.substring(1,line.length()-1).split(",");
         int[] array = new int[str.length];
         for (int i = 0; i < str.length; ++i ) {
-            array[i] = Integer.parseInt(str[i]);
+            array[i] = Integer.parseInt(str[i].replaceAll("\\s+",""));
         }
         return array;
     }

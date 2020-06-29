@@ -6,7 +6,7 @@ import numpy as np
 from copy import deepcopy
 import fileinput
 robocodePath = 'C:/robocode/'
-dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning/ARL/Rl_nn.data/'
+dataPath = os.path.dirname(sys.argv[0]) + '/out/production/RobocodeDeepQLearning/ARL/MinimalRiskBot.data/'
 subprocesses = []
 
 topParentPercent = 0.8
@@ -16,20 +16,16 @@ hiddenLayerNeurons = 10
 outputNeurons = 1
 populationSize = 10
 randomWeightStandardDeviation = 20
-hyperparamAmount = 11
+hyperparamAmount = 7
 hyperparamStandardDeviation = 10
 # hyperparams:
-# alpha,
-# gamma,
-# rho,
-# epsilon
-# hitBulletReward,
-# hitByBulletReward,
-# hitRobotReward,
-# hitwallReward,
-# onDeathReward,
-# onWinReward,
-# hiddenLayerNeurons
+# MLP ARRAY [3...]
+# Activation Function enum(int) ARRAY [0 ... 6] (Length: MLP ARRAY - 1)
+# Learning Rate () double01
+# Batch Size int [1 ... 10]
+# nonHitReward double
+# hitReward double
+# ramReward double
 
 class Robot:
     hyperparams = [0] * hyperparamAmount
@@ -43,13 +39,6 @@ class Robot:
 
     def saveHyperparams(self):
         saveHyperparams(self.hyperparams, str(self.id) + 'hyperparams.txt')
-
-    def cleanHyperparams(self):
-        self.hyperparams[0] = clamp(abs(self.hyperparams[0]), 0.00000001 , 1)  # alpha,
-        self.hyperparams[1] = clamp(abs(self.hyperparams[1]), 0.00000001 , 1)  # gamma,
-        self.hyperparams[2] = clamp(abs(self.hyperparams[2]), 0.00000001 , 1)  # rho,
-        self.hyperparams[3] = clamp(abs(self.hyperparams[3]), 0.00000001 , 1)  # epsilon,
-        self.hyperparams[10] = clamp(abs(self.hyperparams[10]), 2, 100)  # hiddenLayerNeurons
 
     #checks all files that start with "id + 'result'",
     # e.g following files would be read if id = 0 ("0result", "0result_corners.txt", "0resultA.txt")
@@ -86,22 +75,29 @@ def loadWeights(filename):
 
 def saveHyperparams(hyperParams, filename):
     f = open(dataPath + filename, "w+")
-    f.write(str(abs(hyperParams[0])) + "\n")            # alpha,
-    f.write(str(abs(hyperParams[1])) + "\n")            # gamma,
-    f.write(str(abs(hyperParams[2])) + "\n")            # rho,
-    f.write(str(abs(hyperParams[3])) + "\n")            # epsilon,
-    f.write(str(hyperParams[4]) + "\n")                     # hitBulletReward,
-    f.write(str(hyperParams[5]) + "\n")                     # hitByBulletReward,
-    f.write(str(hyperParams[6]) + "\n")                     # hitRobotReward,
-    f.write(str(hyperParams[7]) + "\n")                     # hitwallReward,
-    f.write(str(hyperParams[8]) + "\n")                     # onDeathReward,
-    f.write(str(hyperParams[9]) + "\n")                     # onWinReward,
-    f.write(str(hyperParams[10]) + "\n")  # hiddenLayerNeurons
+    for i in range(hyperparamAmount):
+        f.write(str(hyperParams[i]) + "\n")
     f.close()
 
 def loadHyperparams(filename):
+    outHyperParams = [0] * hyperparamAmount
+    lines = [] * hyperparamAmount
     with open(dataPath + filename) as f:
-        return [float(x) for x in f]
+        lines = f.readlines()
+
+    for i in range(len(lines)):
+        lines[i] = lines[i].strip()
+
+
+
+    outHyperParams[0] = readStringToIntArray(lines[0])
+    outHyperParams[1] = readStringToIntArray(lines[1])
+    outHyperParams[2] = float(lines[2])
+    outHyperParams[3] = int(lines[3])
+    for i in range(4, hyperparamAmount):
+        outHyperParams[i] = float(lines[i])
+    return outHyperParams
+
 
 def avoidZero(min, max):
     rand = random.uniform(min, max)
@@ -128,28 +124,37 @@ def generateWeights(inputNeurons, outputNeurons, weights_hidden=None, weights_ou
         weights_output = [[random.gauss(0, randomWeightStandardDeviation) for k in range(int(robots[i].hyperparams[10]) + 1)] for j in range(outputNeurons)]
         saveWeights(weights_output, str(i) + "weights_output.txt")
 
+def readStringToIntArray(array):
+    return list(map(int, array[1:len(array) - 1].split(',')))
+
 #genereates Hyperparameter, and saves them in robots and in files
 def generateHyperparams():
     for i in range(populationSize):
         hyperParams = [0] * hyperparamAmount
-        #hyperParams = [random.gauss(0, hyperparamStandardDeviation) for k in range(hyperparamAmount)]
-        #scale to better fit 0 - 1
-        # alpha, gamma, rho, epsilon
-        for j in range(4):
-            if j == 2:
-                hyperParams[2] = avoidZero(0,1) * 0.01             #rho
-            else:
-                hyperParams[j] = avoidZero(0,1)
+        # hyperParams = [random.gauss(0, hyperparamStandardDeviation) for k in range(hyperparamAmount)]
+        # scale to better fit 0 - 1
+        # LayerInfo
+        rndLayerAmount = random.randint(3, 10)
+        layers = []
+        layers.append(6)
+        for j in range(1, rndLayerAmount - 1):
+            layers.append(random.randrange(2, 20))
+        layers.append(1)
+        hyperParams[0] = layers
 
-        # rewards
-        for j in range(4, 10):
-            hyperParams[j] = avoidZeroGauss(0, 50)
+        # ActivationFunctionInfo
+        af = []
+        for j in range(rndLayerAmount - 1):
+            af.append(random.randint(0, 6))
+        hyperParams[1] = af
 
-        # hiddenLayerNeurons
-        hyperParams[10] = int(random.uniform(2, 20))
-        robots[i].hyperparams = hyperParams
+        hyperParams[2] = random.uniform(0.000001,1)     #learningRate
+        hyperParams[3] = random.randint(1,10)           #batchsize
+        for j in range(4, hyperparamAmount):            #rewards
+            hyperParams[j] = random.uniform(-10,10)
+
+
         saveHyperparams(hyperParams, str(i) + "hyperparams.txt")
-
 
 
 def loadAllHyperparams():
@@ -408,5 +413,5 @@ def run(generations):
         resetConfig()
         saveFitness("generationInfo.txt")
 
-run(3)
-#init(populationSize)
+#run(3)
+init(populationSize)
