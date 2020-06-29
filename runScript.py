@@ -359,7 +359,6 @@ def setConfig(id):
 
 def init(populationSize):
     generateHyperparams()
-    generateWeights(inputNeurons,outputNeurons)
     resetConfig()
 
 robots = [Robot] * populationSize
