@@ -189,10 +189,10 @@ def calculateFitness(filename):
 def runRoboCode(generations, battlePathAndName, resultPathandName):
     for x in range(generations):
         if (resultPathandName == ''):
-            p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ' + battlePathAndName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
+            p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/* robocode.Robocode -battle ' + battlePathAndName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
             subprocesses.append(p1)
         else:
-            p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/robocode.jar robocode.Robocode -battle ' + battlePathAndName + ' -results ' + resultPathandName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
+            p1 = subprocess.Popen('java -Xmx512M -Dsun.io.useCanonCaches=false -DPARALLEL=true -cp libs/* robocode.Robocode -battle ' + battlePathAndName + ' -results ' + resultPathandName + ' -tps 1000000 -nodisplay', cwd = robocodePath)
             subprocesses.append(p1)
         print("gen: " + str(x+1) + " of " + str(generations) + " done")
 
@@ -378,7 +378,6 @@ def setConfig(id):
 
 def init(populationSize):
     generateHyperparams()
-    generateWeights(inputNeurons,outputNeurons)
     resetConfig()
 
 robots = [Robot] * populationSize
@@ -402,19 +401,7 @@ def run(generations):
         subprocesses.clear()
         for j in range(0,populationSize):
             #training stage
-            runRoboCode(1,robocodePath + 'battles/NNTrain.battle', '')
-            time.sleep(2)
-
-        for s in subprocesses:
-            s.wait()
-
-        subprocesses.clear()
-
-        resetConfig()
-        #evaluation stage
-        for j in range(0, populationSize):
-            changeEpsilonToOne(j)
-            runRoboCode(1,robocodePath + 'battles/NNEvaluate.battle', dataPath + str(j) + "result.txt")
+            runRoboCode(1,robocodePath + 'battles/NNTrain.battle', dataPath + str(j) + "result.txt")
             time.sleep(2)
 
         for s in subprocesses:
@@ -425,12 +412,10 @@ def run(generations):
 
         robots = makeEvolution(robots)
         for r in robots:
-            r.cleanHyperparams()
             r.saveHyperparams()
 
-        generateWeights(inputNeurons, outputNeurons)
         resetConfig()
         saveFitness("generationInfo.txt")
 
-#run(3)
-init(populationSize)
+run(3)
+#init(populationSize)
