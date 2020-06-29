@@ -201,6 +201,10 @@ def selectParents(parents):
     out_amount = int(len(parents) * topParentPercent)
     parents.sort(key = lambda x: x.fitness, reverse = True)
 
+    #print('INPUT')
+    #for i in parents:
+    #    print(i.fitness)
+
     #Fill best_parents array with the best robots
     best_parents = []
     for i in range(out_amount):
@@ -212,15 +216,15 @@ def selectParents(parents):
     best_diversity = 0
 
     i = 1
-    while i < len(best_parents):
+    while i < len(parents):
         total_diversity = 0
 
-        j = 0
-        while j < len(parents[0].hyperparams):
-            diversity = pow((best_parents[0].hyperparams[j] - best_parents[i].hyperparams[j])/abs(best_parents[0].hyperparams[j]), 2)
+
+        for j in range(2,len(parents[0].hyperparams)):
+            diversity = pow((parents[0].hyperparams[j] - parents[i].hyperparams[j])/abs(parents[0].hyperparams[j]), 2)
 
             total_diversity += diversity
-            j += 1
+
 
 
         if total_diversity >=  best_diversity:
@@ -230,9 +234,13 @@ def selectParents(parents):
 
         i += 1
 
+    #print('Best diversity index')
+    #print(best_diversity_index)
+
+
     #Put robot with biggest diversity from best robot to the first position of the output array
     output_array = [None] * out_amount
-    output_array[0] = best_parents[best_diversity_index]
+    output_array[0] = parents[best_diversity_index]
 
     best_parents_index = 0
     j = 1
@@ -311,7 +319,7 @@ def makeEvolution(parents):
     nextGen[0] = selectedParents[0]
     nextGen[1] = selectedParents[1]
 
-    crossover_number = populationSize - len(parents) + 2
+    crossover_number = populationSize - len(selectedParents)
 
     if crossover_number % 2 == 0:
         mutationNumber = len(selectedParents)
