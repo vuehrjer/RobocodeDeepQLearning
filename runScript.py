@@ -278,7 +278,7 @@ def mutate(parent):
             child.hyperparams[1][i] = random.randint(0, 6)
     rand = random.random()
     if rand < mutationChance:
-        child.hyperparams[2] += abs(random.gauss(0, child.hyperparams[2]))
+        child.hyperparams[2] += clamp(abs(random.gauss(0, child.hyperparams[2])), 0.0001, 1)
     rand = random.random()
     if rand < mutationChance:
         child.hyperparams[3] = clamp(int(random.gauss(child.hyperparams[3], 5)),  1, 10)
@@ -297,7 +297,18 @@ def mutate(parent):
 def crossover(father, mother):
     son = deepcopy(father)
     daughter = deepcopy(mother)
-    for i in range(len(father.hyperparams)):
+    rand = random.random()
+    if rand < 0.5:
+        son.hyperparams[0] = father.hyperparams[0]
+        son.hyperparams[1] = father.hyperparams[1]
+        daughter.hyperparams[0] = mother.hyperparams[0]
+        daughter.hyperparams[1] = mother.hyperparams[1]
+    else:
+        son.hyperparams[0] = mother.hyperparams[0]
+        son.hyperparams[1] = mother.hyperparams[1]
+        daughter.hyperparams[0] = father.hyperparams[0]
+        daughter.hyperparams[1] = father.hyperparams[1]
+    for i in range(2, len(father.hyperparams)):
         rand = random.random()
         if(rand < 0.5):
             son.hyperparams[i] = father.hyperparams[i]
