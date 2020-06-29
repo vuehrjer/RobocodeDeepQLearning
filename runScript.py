@@ -319,7 +319,7 @@ def makeEvolution(parents):
     nextGen[0] = selectedParents[0]
     nextGen[1] = selectedParents[1]
 
-    crossover_number = populationSize - len(parents) + 2
+    crossover_number = populationSize - len(selectedParents)
 
     if crossover_number % 2 == 0:
         mutationNumber = len(selectedParents)
