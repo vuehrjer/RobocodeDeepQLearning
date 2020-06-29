@@ -14,7 +14,7 @@ mutationChance = 0.2
 inputNeurons = 8
 hiddenLayerNeurons = 10
 outputNeurons = 1
-populationSize = 10
+populationSize = 30
 randomWeightStandardDeviation = 20
 hyperparamAmount = 7
 hyperparamStandardDeviation = 10
@@ -148,7 +148,7 @@ def generateHyperparams():
             af.append(random.randint(0, 6))
         hyperParams[1] = af
 
-        hyperParams[2] = random.uniform(0.000001,1)     #learningRate
+        hyperParams[2] = random.uniform(0.000001,0.1)     #learningRate
         hyperParams[3] = random.randint(1,10)           #batchsize
         for j in range(4, hyperparamAmount):            #rewards
             hyperParams[j] = random.uniform(-10,10)
@@ -406,5 +406,5 @@ def run(generations):
         resetConfig()
         saveFitness("generationInfo.txt")
 
-run(3)
-#init(populationSize)
+#run(10)
+init(populationSize)
